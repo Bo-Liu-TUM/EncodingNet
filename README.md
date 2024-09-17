@@ -22,6 +22,10 @@ Open source for a submitted paper on IEEE Transactions on Circuits and Systems f
 
 ## Fine-tune neural networks
 The following files are used to apply searched encodings, fine-tune encoding-based neural networks, and test for accuracies. 
-`Code_2_finetune_cifar10.py`, `Code_3_finetune_cifar100.py` and `Code_4_finetune_imagenet.py`.
+|File|Dataset|Model|
+| ---- | ---- | ---- |
+|`Code_2_finetune_cifar10.py`|CIFAR-10|ResNet-18|
+|`Code_3_finetune_cifar100.py`|CIFAR-100|ResNet-20|
+|`Code_4_finetune_imagenet.py`|ImageNet|ResNet-50|
 
 
