@@ -28,5 +28,8 @@ The following files are used to apply searched encodings, fine-tune encoding-bas
 |`Code_3_finetune_cifar100.py`|CIFAR-100|ResNet-20|
 |`Code_4_finetune_imagenet.py`|ImageNet|ResNet-50|
 
+## Verilog code
+An example Verilog code of one column in 64$\times$64 MAC array is shown in `/verilog/PE_colunm_Bo_64.v`. 
+
 ## Citation
 Waiting for the paper to be accepted.
