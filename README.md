@@ -10,4 +10,4 @@ Open source for a submitted paper on IEEE Transactions on Circuits and Systems f
 `Code_4_finetune_imagenet.py`
 
 ## CGP package
-'cgp' is a modified package which is copied from [https://zenodo.org/records/3889163](https://zenodo.org/records/3889163)
+`cgp` is a modified package which is copied from [https://zenodo.org/records/3889163](https://zenodo.org/records/3889163)
