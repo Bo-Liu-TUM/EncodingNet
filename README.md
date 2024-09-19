@@ -28,9 +28,12 @@ The following files are used to apply searched encodings, fine-tune encoding-bas
 |`Code_3_finetune_cifar100.py`|CIFAR-100|ResNet-20|
 |`Code_4_finetune_imagenet.py`|ImageNet|ResNet-50|
 
+<!--
 ## Verilog code
-<!--An example Verilog code of one column in 64×64 MAC array is shown in `/verilog/PE_colunm_Bo_64.v`. -->
+An example Verilog code of one column in 64×64 MAC array is shown in `/verilog/PE_colunm_Bo_64.v`. 
 ### Systolic array, exact multiplier, exact adder
+
+![trad-exact-mul-exact-add](/verilog/trad/exact-mul-exact-add.svg)
 
 <div id="mm" class="msgbox"><pre><span class="msg_none">Running Icarus Verilog simulator...</span>
 <span class="msg_none">VCD info: dumping is suppressed.</span>
@@ -47,6 +50,7 @@ The following files are used to apply searched encodings, fine-tune encoding-bas
 <span class="msg_none">Simulation finished at 100 ps</span>
 <span class="msg_none">Mismatches: 0 in 0 samples</span>
 <span class="msg_none"></span></pre></div>
+-->
 
 ## Citation
 Waiting for the paper to be accepted.
