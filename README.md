@@ -28,10 +28,25 @@ The following files are used to apply searched encodings, fine-tune encoding-bas
 |`Code_3_finetune_cifar100.py`|CIFAR-100|ResNet-20|
 |`Code_4_finetune_imagenet.py`|ImageNet|ResNet-50|
 
-<!--
 ## Verilog code
-An example Verilog code of one column in 64×64 MAC array is shown in `/verilog/PE_colunm_Bo_64.v`. 
--->
+<!--An example Verilog code of one column in 64×64 MAC array is shown in `/verilog/PE_colunm_Bo_64.v`. -->
+### Systolic array, exact multiplier, exact adder
+
+<div id="mm" class="msgbox"><pre><span class="msg_none">Running Icarus Verilog simulator...</span>
+<span class="msg_none">VCD info: dumping is suppressed.</span>
+<span class="msg_none">a_left * w_in + sum_in =    1 *    1 +      2 =      3, sum_out =      3 (00003 at 15 ps)</span>
+<span class="msg_none">a_left * w_in + sum_in =   -2 *    1 +     -3 =     -5, sum_out =     -5 (1fffb at 25 ps)</span>
+<span class="msg_none">a_left * w_in + sum_in =    3 *    1 +     -4 =     -1, sum_out =     -1 (1ffff at 35 ps)</span>
+<span class="msg_none">a_left * w_in + sum_in =   -4 *    1 +      5 =      1, sum_out =      1 (00001 at 45 ps)</span>
+<span class="msg_none">a_left * w_in + sum_in =    1 *   -1 +      2 =      1, sum_out =      1 (00001 at 65 ps)</span>
+<span class="msg_none">a_left * w_in + sum_in =   -2 *   -1 +     -3 =     -1, sum_out =     -1 (1ffff at 75 ps)</span>
+<span class="msg_none">a_left * w_in + sum_in =    3 *   -1 +     -4 =     -7, sum_out =     -7 (1fff9 at 85 ps)</span>
+<span class="msg_none">a_left * w_in + sum_in =   -4 *   -1 +      5 =      9, sum_out =      9 (00009 at 95 ps)</span>
+<span class="msg_hint">Hint: Total mismatched samples is 0 out of 0 samples</span>
+<span class="msg_none"></span>
+<span class="msg_none">Simulation finished at 100 ps</span>
+<span class="msg_none">Mismatches: 0 in 0 samples</span>
+<span class="msg_none"></span></pre></div>
 
 ## Citation
 Waiting for the paper to be accepted.
