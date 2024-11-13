@@ -1,5 +1,7 @@
 # EncodingNet
-Open source for a submitted paper on IEEE Transactions on Circuits and Systems for Artificial Intelligence.
+This ia an open-source repo for an accepted paper, `EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration`, on `IEEE Transactions on Circuits and Systems for Artificial Intelligence (TCASAI)`. 
+
+The codes in this repo will be well-structured and updated in the following weeks.
 
 ## Pretrained models
 |  Dataset   | Online Models  |
@@ -53,4 +55,26 @@ An example Verilog code of one column in 64×64 MAC array is shown in `/verilog/
 -->
 
 ## Citation
-Waiting for the paper to be accepted.
+The paper is now accepted, and can be early accessed online, [https://ieeexplore.ieee.org/document/10746865](https://ieeexplore.ieee.org/document/10746865). 
+
+The paper is not fully edited for official publication, so the pages are still unknown.
+
+### Plain Text
+
+B. Liu, B. Li, G. L. Zhang, X. Yin, C. Zhuo and U. Schlichtmann, "EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration," _IEEE Transactions on Circuits and Systems for Artificial Intelligence (TCASAI)_, vol. 1, no. 1, pp. ?-?, 2024.
+
+
+### BibTeX
+```
+@ARTICLE{10746865,
+  author={Liu, Bo and Li, Bing and Zhang, Grace Li and Yin, Xunzhao and Zhuo, Cheng and Schlichtmann, Ulf},
+  journal={IEEE Transactions on Circuits and Systems for Artificial Intelligence}, 
+  title={EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration}, 
+  year={2024},
+  volume={1},
+  number={1},
+  pages={?-?},
+  doi={10.1109/TCASAI.2024.3493035},
+  url={https://ieeexplore.ieee.org/document/10746865}
+}
+```
