@@ -68,8 +68,8 @@ B. Liu, B. Li, G. L. Zhang, X. Yin, C. Zhuo and U. Schlichtmann, "EncodingNet: A
 ```
 @ARTICLE{10746865,
   author={Liu, Bo and Li, Bing and Zhang, Grace Li and Yin, Xunzhao and Zhuo, Cheng and Schlichtmann, Ulf},
-  journal={IEEE Transactions on Circuits and Systems for Artificial Intelligence}, 
-  title={EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration}, 
+  journal={IEEE Transactions on Circuits and Systems for Artificial Intelligence (TCASAI)}, 
+  title={{EncodingNet}: A Novel Encoding-based {MAC} Design for Efficient Neural Network Acceleration}, 
   year={2024},
   volume={1},
   number={1},
