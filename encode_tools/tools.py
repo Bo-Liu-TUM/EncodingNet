@@ -388,6 +388,196 @@ def apply_delta_for_finetune(searched_info, delta=0):
     return searched_info
 
 
+def get_approx_product(searched_info, a_bit=8, w_bit=8, product_bit=64, f_info='../backup/searched_info.pickle'):
+    def test_fc(approx_product):
+        def p(x_l, w_l, x_sign=True, w_sign=True):
+            x_c = (x_l * 127).int() & 255 if x_sign else (x_l * 255).int()
+            w_c = (w_l * 127).int() & 255 if w_sign else (w_l * 255).int()
+            idx = x_c * 256 + w_c
+            return approx_product[idx].sum(2)
+
+        def q(x, sign=True):
+            m = x.abs().max()
+            s = 127 if sign else 255
+            return x.div(m).mul(s).round().div(s).mul(m)
+
+        x, w = torch.rand(2, 4) * 2 - 1, torch.rand(3, 4) * 2 - 1
+        x, w = x.unsqueeze(1), w.unsqueeze(0)
+        fc_real = (x * w).sum(2)
+        m_x, m_w = x.abs().max(), w.abs().max()
+        x_q, w_q = q(x, sign=True), q(w, sign=True)
+        fc_quant = (x_q * w_q).sum(2)
+        x_l, w_l = x_q / m_x, w_q / m_w
+        fc_approx = p(x_l, w_l, x_sign=True, w_sign=True) * m_x * m_w
+
+        print('real   product: {}\n'
+              'quant  product: {}\n'
+              'approx product: {}\n'.format(fc_real, fc_quant, fc_approx))
+
+    def test_fc_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight):
+        def p(x_l, w_l, x_sign=True, w_sign=True):
+            x_c = (x_l * 127).int() + 128 if x_sign else (x_l * 255).int()
+            w_c = (w_l * 127).int() + 128 if w_sign else (w_l * 255).int()
+            # return approx_product_value_2d[x_c, w_c].sum(2)
+            return (approx_product_code_2d[x_c, w_c].sum(2) * digit_weight).sum(2)
+
+        def q(x, sign=True):
+            m = x.abs().max()
+            s = 127 if sign else 255
+            return x.div(m).mul(s).round().div(s).mul(m)
+
+        x, w = torch.rand(2, 4) * 2 - 1, torch.rand(3, 4) * 2 - 1
+        x, w = x.unsqueeze(1), w.unsqueeze(0)
+        fc_real = (x * w).sum(2)
+        m_x, m_w = x.abs().max(), w.abs().max()
+        x_q, w_q = q(x, sign=True), q(w, sign=True)
+        fc_quant = (x_q * w_q).sum(2)
+        x_l, w_l = x_q / m_x, w_q / m_w
+        fc_approx = p(x_l, w_l, x_sign=True, w_sign=True) * m_x * m_w
+
+        print('real   product: {}\n'
+              'quant  product: {}\n'
+              'approx product: {}\n'.format(fc_real, fc_quant, fc_approx))
+
+    def test_conv(approx_product, bias=None, stride=(1, 1), padding=(1, 1), dilation=(1, 1), groups=1):
+        import torch.nn.functional as F
+
+        def conv2d(x, w, stride, padding, approx=False, x_sign=True, w_sign=True):
+            d, c, k, j = w.shape
+            x_pad = F.pad(x, padding * 2, value=0.)
+            x_pad = x_pad.unfold(2, k, stride[0])
+            x_pad = x_pad.unfold(3, j, stride[1])
+            x_pad = x_pad.unsqueeze(1)
+            w = w.unsqueeze(2).unsqueeze(2).unsqueeze(0)
+            if approx:
+                return p(x_pad, w, x_sign=x_sign, w_sign=w_sign)  # .sum(dim=(5,6,2))
+            else:
+                return x_pad.mul(w).sum(dim=(5, 6, 2))
+
+        def p(x_l, w_l, x_sign=True, w_sign=True):
+            x_c = (x_l * 127).int() & 255 if x_sign else (x_l * 255).int()
+            w_c = (w_l * 127).int() & 255 if w_sign else (w_l * 255).int()
+            idx = x_c * 256 + w_c
+            return approx_product[idx].sum(dim=(5, 6, 2))
+            # x_c = x_c * 256
+            # xw_c = []
+            # for di in range(w_c.shape[1]):
+            #     xw_c.append(approx_product[w_c[:, di:di + 1, :, :, :, :, :] + x_c].sum(dim=(5, 6, 2)))
+            # xw_c = torch.concat(xw_c, dim=1)
+            # return xw_c
+            # idx = x_c + w_c
+            # return approx_product[idx]
+
+        def q(x, sign=True):
+            m = x.abs().max()
+            s = 127 if sign else 255
+            return x.div(m).mul(s).round().div(s).mul(m)
+
+        # bias, stride, padding, dilation, groups = None, (1, 1), (1, 1), (1, 1), 1
+        x, w = torch.rand(2, 3, 4, 4), torch.rand(3, 3, 2, 2) * 2 - 1
+        m_x, m_w = x.abs().max(), w.abs().max()
+        # real
+        # F.conv2d(x,w,bias,stride,padding,dilation,groups) == x_pad.mul(w).sum(dim=(5,6,2))
+        conv_real = conv2d(x, w, stride, padding)  # .sum(dim=(5,6,2))
+        # quant
+        x_q, w_q = q(x, sign=True), q(w, sign=True)
+        conv_quant = conv2d(x_q, w_q, stride, padding)
+        # approx
+        x_l, w_l = x_q / m_x, w_q / m_w
+        conv_approx = conv2d(x_l, w_l, stride, padding, approx=True, x_sign=True, w_sign=True) * m_x * m_w
+
+        print('real   product: {}\n'
+              'quant  product: {}\n'
+              'approx product: {}\n'.format(conv_real, conv_quant, conv_approx))
+
+    def test_conv_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight,
+                          bias=None, stride=(1, 1), padding=(1, 1), dilation=(1, 1), groups=1):
+        import torch.nn.functional as F
+
+        def conv2d(x, w, stride, padding, approx=False, x_sign=True, w_sign=True):
+            d, c, k, j = w.shape
+            x_pad = F.pad(x, padding * 2, value=0.)
+            x_pad = x_pad.unfold(2, k, stride[0])
+            x_pad = x_pad.unfold(3, j, stride[1])
+            x_pad = x_pad.unsqueeze(1)
+            w = w.unsqueeze(2).unsqueeze(2).unsqueeze(0)
+            if approx:
+                return p(x_pad, w, x_sign=x_sign, w_sign=w_sign)  # .sum(dim=(5,6,2))
+            else:
+                return x_pad.mul(w).sum(dim=(5, 6, 2))
+
+        def p(x_l, w_l, x_sign=True, w_sign=True):
+            x_c = (x_l * 127).int() + 128 if x_sign else (x_l * 255).int()
+            w_c = (w_l * 127).int() + 128 if w_sign else (w_l * 255).int()
+            # return approx_product_value_2d[x_c, w_c].sum(dim=(5, 6, 2))
+            return (approx_product_code_2d[x_c, w_c, :].sum(dim=(5, 6, 2)) * digit_weight).sum(4)
+            # xw_c = []
+            # for di in range(w_c.shape[1]):
+            #     xw_c.append(approx_product[w_c[:, di:di + 1, :, :, :, :, :] + x_c].sum(dim=(5, 6, 2)))
+            # xw_c = torch.concat(xw_c, dim=1)
+            # return xw_c
+            # idx = x_c + w_c
+            # return approx_product[idx]
+
+        def q(x, sign=True):
+            m = x.abs().max()
+            s = 127 if sign else 255
+            return x.div(m).mul(s).round().div(s).mul(m)
+
+        # bias, stride, padding, dilation, groups = None, (1, 1), (1, 1), (1, 1), 1
+        x, w = torch.rand(2, 3, 4, 4), torch.rand(3, 3, 2, 2) * 2 - 1
+        m_x, m_w = x.abs().max(), w.abs().max()
+        # real
+        # F.conv2d(x,w,bias,stride,padding,dilation,groups) == x_pad.mul(w).sum(dim=(5,6,2))
+        conv_real = conv2d(x, w, stride, padding)  # .sum(dim=(5,6,2))
+        # quant
+        x_q, w_q = q(x, sign=True), q(w, sign=True)
+        conv_quant = conv2d(x_q, w_q, stride, padding)
+        # approx
+        x_l, w_l = x_q / m_x, w_q / m_w
+        conv_approx = conv2d(x_l, w_l, stride, padding, approx=True, x_sign=True, w_sign=True) * m_x * m_w
+
+        print('real   product: {}\n'
+              'quant  product: {}\n'
+              'approx product: {}\n'.format(conv_real, conv_quant, conv_approx))
+
+    approx_product_value_2d, approx_product_code_2d, digit_weight = None, None, None
+    if product_bit == 0:
+        # return None, 0.0
+        return None, None, None, 0.0
+    else:
+        # import pickle
+        # # f_info = '../backup/searched_info.pickle'
+        # with open(f_info, 'rb') as f:
+        #     searched_info = pickle.load(f)
+        # # print(product_bit, type(product_bit))
+        for info in searched_info:
+            if info['bit-width of product'] == product_bit:
+                print('bit-width of product: {}\t'
+                      'root mean square error:{:.2e}'.format(info['bit-width of product'],
+                                                             info['root mean square error']))
+                # (info['code of activation'] * 2 ** torch.arange(0, 8).flip(0).view(1, -1)).sum(1)
+                # (info['code of weight'] * 2 ** torch.arange(0, 8).flip(0).view(1, -1)).sum(1)
+                assert info['bit-width of weight'] == w_bit
+                assert info['bit-width of activation'] == a_bit
+                # idx = (info['input code of product'] * 2 ** torch.arange(0, 2 * bit).flip(0).view(-1, 1)).sum(0)
+                # approx_product = torch.zeros_like(idx).float()
+                # approx_product[idx] = info['approximate value of product']
+                approx_product_code_2d = info['output code of product'].view(product_bit, 256, 256).permute(1, 2, 0)
+                approx_product_value_2d = info['approximate value of product'].view(256, 256)
+                digit_weight = info['digit-weight of product code']
+                # approx_product[idx] = info['real value of product']
+                # test_fc(approx_product)
+                # test_conv(approx_product)
+                # test_fc_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight)
+                # test_conv_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight)
+                # return approx_product, info['root mean square error']
+                return approx_product_value_2d, approx_product_code_2d, digit_weight, info['root mean square error']
+        if None in (approx_product_value_2d, approx_product_code_2d, digit_weight):
+            raise ValueError('did not find product_bit={} in {}'.format(product_bit, f_info))
+
+
+
 def main():
     pass
 

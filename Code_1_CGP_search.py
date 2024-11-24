@@ -2,10 +2,6 @@
 this is for encoding search using cartesian genetic programming
 """
 
-# import deap
-# https://github.com/DEAP/deap
-# https://deap.readthedocs.io/en/master/index.html
-
 import cgp
 # https://github.com/Happy-Algorithms-League/hal-cgp
 # https://happy-algorithms-league.github.io/hal-cgp/index.html
@@ -169,7 +165,7 @@ def solve_and_drop_bits(code_sample, value_true, independent_cols_idx, target_bi
 
 def main():
     # Define parameters for the population, the genome, the evolutionary algorithm and the evolve function.
-    population_params = {"n_parents": 10, "seed": None}  # seed used for the reproduction 8188211
+    population_params = {"n_parents": n_parents, "seed": None}  # seed used for the reproduction 8188211
 
     genome_params = {
         "n_inputs": 16,
@@ -180,8 +176,8 @@ def main():
         "primitives": primitives,  # optional operations in each node
     }
 
-    ea_params = {"n_offsprings": 50, "mutation_rate": 0.1,
-                 "tournament_size": 2, "n_processes": 1,
+    ea_params = {"n_offsprings": n_offsprings, "mutation_rate": mutate_rate,
+                 "tournament_size": n_champions, "n_processes": 1,
                  # "reorder_genome": True  # only valid when n_rows == 1 and levels_back == n_columns
                  }
 
@@ -240,58 +236,42 @@ def main():
             pickle.dump(running_info, f, protocol=pickle.HIGHEST_PROTOCOL)  # save
         print(running_file, 'saved!')
 
-        max_re = pop.champion.custom_attr_maximal_relative_error
-        if 0.9 < max_re:
-            ea._mutation_rate = (0.3 * total_gates) / total_gates
-        elif 0.8 < max_re <= 0.9:
-            ea._mutation_rate = (0.2 * total_gates) / total_gates
-        elif 0.7 < max_re <= 0.8:
-            ea._mutation_rate = (0.2 * total_gates) / total_gates
-        elif 0.6 < max_re <= 0.7:
-            ea._mutation_rate = (0.1 * total_gates) / total_gates
-        elif 0.5 < max_re <= 0.6:
-            ea._mutation_rate = (0.1 * total_gates) / total_gates
-        elif 0.4 < max_re <= 0.5:
-            ea._mutation_rate = (0.1 * total_gates) / total_gates
-            # ea._mutation_rate = 0.08
-        elif 0.3 < max_re <= 0.4:
-            ea._mutation_rate = (0.1 * total_gates) / total_gates
-            # ea._mutation_rate = 0.075
-        elif 0.2 < max_re <= 0.3:
-            ea._mutation_rate = (0.1 * total_gates) / total_gates
-            # ea._mutation_rate = 0.07
-        elif 0.1 < max_re <= 0.2:
-            # ea._mutation_rate = 0.05
-            ea._mutation_rate = (0.05 * total_gates) / total_gates
-        elif 0.05 < max_re <= 0.1:
-            # ea._mutation_rate = 0.03
-            # ea._mutation_rate = 2.0 / total_gates
-            ea._mutation_rate = (0.0285 * total_gates) / total_gates
-        elif 0.04 < max_re <= 0.05:
-            # ea._mutation_rate = 0.025
-            # ea._mutation_rate = 1.5 / total_gates
-            ea._mutation_rate = (0.0214 * total_gates) / total_gates
-        elif 0.03 < max_re <= 0.04:
-            # ea._mutation_rate = 0.02
-            # ea._mutation_rate = 1.0 / total_gates
-            ea._mutation_rate = (0.0143 * total_gates) / total_gates
-        elif 0.025 < max_re <= 0.03:
-            # ea._mutation_rate = 0.015
-            # ea._mutation_rate = 1.0 / total_gates
-            ea._mutation_rate = (0.0133 * total_gates) / total_gates
-        elif 0.02 < max_re <= 0.025:
-            # ea._mutation_rate = 0.01
-            # ea._mutation_rate = 0.5 / total_gates
-            ea._mutation_rate = (0.0123 * total_gates) / total_gates
-        elif 0.01 < max_re <= 0.02:
-            # ea._mutation_rate = 0.008
-            # ea._mutation_rate = 0.3 / total_gates
-            ea._mutation_rate = (0.0113 * total_gates) / total_gates
-        elif 0.005 < max_re <= 0.01:
-            # ea._mutation_rate = 0.3 / total_gates
-            ea._mutation_rate = (0.0100 * total_gates) / total_gates
-        elif max_re <= 0.005:
-            ea._mutation_rate = (0.0100 * total_gates) / total_gates
+        if mutate_strategy == 'dynamic':
+            max_re = pop.champion.custom_attr_maximal_relative_error
+            if 0.9 < max_re:
+                ea._mutation_rate = 0.3
+            elif 0.8 < max_re <= 0.9:
+                ea._mutation_rate = 0.2
+            elif 0.7 < max_re <= 0.8:
+                ea._mutation_rate = 0.2
+            elif 0.6 < max_re <= 0.7:
+                ea._mutation_rate = 0.1
+            elif 0.5 < max_re <= 0.6:
+                ea._mutation_rate = 0.1
+            elif 0.4 < max_re <= 0.5:
+                ea._mutation_rate = 0.1
+            elif 0.3 < max_re <= 0.4:
+                ea._mutation_rate = 0.1
+            elif 0.2 < max_re <= 0.3:
+                ea._mutation_rate = 0.1
+            elif 0.1 < max_re <= 0.2:
+                ea._mutation_rate = 0.05
+            elif 0.05 < max_re <= 0.1:
+                ea._mutation_rate = 0.0285
+            elif 0.04 < max_re <= 0.05:
+                ea._mutation_rate = 0.0214
+            elif 0.03 < max_re <= 0.04:
+                ea._mutation_rate = 0.0143
+            elif 0.025 < max_re <= 0.03:
+                ea._mutation_rate = 0.0133
+            elif 0.02 < max_re <= 0.025:
+                ea._mutation_rate = 0.0123
+            elif 0.01 < max_re <= 0.02:
+                ea._mutation_rate = 0.0113
+            elif 0.005 < max_re <= 0.01:
+                ea._mutation_rate = 0.0100
+            elif max_re <= 0.005:
+                ea._mutation_rate = 0.0100
 
     # Use the evolve function that ties everything together and executes the evolution:
     cgp.evolve(pop, objective, ea, **evolve_params,
@@ -304,24 +284,38 @@ def main():
 # python3 Code_1_CGP_search.py --gpu 0 --cols 3 --rows 256 --search 128 --target 56 --th 2.0
 # python3 Code_1_CGP_search.py --gpu 0 --cols 2 --rows 256 --search 128 --target 64 --th 0.12 --gen 3000
 # python3 Code_1_CGP_search.py --gpu 0 --cols 3 --rows 256 --search 128 --target 64 --th 0.12 --gen 3000
+# python3 Code_1_CGP_search.py --cols 2 --rows 256 --search 64 --target 64 --th 0.1 --gen 2500
+# --gpu 0 --idx 0 --n-parents 10 --n-offsprings 50 --n-champions 10 --mutate-strategy dynamic
 parser = argparse.ArgumentParser(description='PyTorch CGP Encode Searching')
 parser.add_argument('--gpu', type=int, default=0, choices=[0, 1, 2, 3])
-parser.add_argument('--target', type=int, default=48)
-parser.add_argument('--search', type=int, default=64)
-parser.add_argument('--cols', type=int, default=1)
+parser.add_argument('--target', type=int, default=64)
+parser.add_argument('--search', type=int, default=128)
+parser.add_argument('--cols', type=int, default=2)
 parser.add_argument('--rows', type=int, default=256)
-parser.add_argument('--th', type=float, default=1.0)
-parser.add_argument('--gen', type=int, default=2)
+parser.add_argument('--th', type=float, default=0.1)
+parser.add_argument('--gen', type=int, default=2500)
+parser.add_argument('--idx', type=int, default=0)
+parser.add_argument('--n-parents', type=int, default=10)
+parser.add_argument('--n-offsprings', type=int, default=50)
+parser.add_argument('--n-champions', type=int, default=2)
+parser.add_argument('--mutate-strategy', type=str, default='dynamic', choices=['dynamic', 'fixed'])
+parser.add_argument('--mutate-rate', type=float, default=0.1)
 parser.add_argument('--zero-meet', action='store_true')
 parser.add_argument('--zero-meet-th', type=float, default=0.2)
 args = parser.parse_args()
 # args.running_cache = '/home/ge26rem/lrz-nashome/LRZ/SourceCode/CGP_search/running_cache/'
-args.running_cache = './running_cache/'
+args.running_cache = './running_cache_CGP_analysis/'
 
 if __name__ == '__main__':
     # zeros_idx = value == 0
     systolic_array_rows = 8
     max_generations = args.gen
+    n_parents = args.n_parents
+    n_idx = args.idx
+    n_offsprings = args.n_offsprings
+    n_champions = args.n_champions
+    mutate_strategy = args.mutate_strategy
+    mutate_rate = args.mutate_rate
     maximal_relative_error_th = args.th / 100  # 0.01%, 0.5%, 1.0%, 2.0%, 5.0%, 10.0%, 20.0%
     zeros_meets_th = args.zero_meet_th
     target_bit_width = args.target  # 48  # 64, 63, ..., 16, 15
@@ -334,12 +328,19 @@ if __name__ == '__main__':
     continue_running = True
     running_path = os.path.join(args.running_cache, f'th{args.th}%')   # backup/
     if not os.path.exists(running_path):
-        os.mkdir(running_path)
+        os.makedirs(running_path)
     running_file = os.path.join(running_path,
                                 f"data-{gate_rows}row-{gate_levels}col-"
-                                f"{target_bit_width}bit-{output_bit_width_during_search}b.pickle")
+                                f"{target_bit_width}bit-{output_bit_width_during_search}b-"
+                                f"idx{n_idx}-"
+                                f"{n_parents}pars-{n_offsprings}offs-{n_champions}chas-"
+                                f"{mutate_strategy}-{mutate_rate}mutate.pickle")
 
-    running_log = f"data-{gate_rows}row-{gate_levels}col-{target_bit_width}bit-{output_bit_width_during_search}b.log"
+    running_log = f"data-{gate_rows}row-{gate_levels}col-" \
+                  f"{target_bit_width}bit-{output_bit_width_during_search}b-" \
+                  f"idx{n_idx}-" \
+                  f"{n_parents}pars-{n_offsprings}offs-{n_champions}chas-" \
+                  f"{mutate_strategy}-{mutate_rate}mutate.log"
     logger = get_logger(name='gcp', level=logging.INFO, log_filename=running_log,
                         log_path=running_path, is_add_file_handler=True,
                         formatter_template='{host}-cuda:' + str(args.gpu) + '-{levelname}-{message}'
@@ -371,7 +372,10 @@ if __name__ == '__main__':
 
     logger.info(f"max_re_th:{maximal_relative_error_th:.2%}\t\t"
                 f"[{gate_rows}rows * {gate_levels}cols]\t"
-                f"[target {target_bit_width}bit / search {output_bit_width_during_search}bit]\t")
+                f"[target {target_bit_width}bit / search {output_bit_width_during_search}bit]\t"
+                f"idx{n_idx}\t"
+                f"[{n_parents}pars-{n_offsprings}offs-{n_champions}chas]\t"
+                f"{mutate_strategy}{mutate_rate}% mutate")
     main()
 else:
     print('Code_1_CGP_search.py imported')

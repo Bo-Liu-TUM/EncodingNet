@@ -5,9 +5,11 @@ from torch.nn.parameter import Parameter
 import pdb
 import time
 
+
 class QuantFC(nn.Linear):
     def __init__(self, in_features, out_features, bias=True,
-                 weights=None, biases=None, bit=8, product_bit=19,
+                 weights=None, biases=None,
+                 a_bit=8, w_bit=8, product_bit=19,
                  mini_batch_size=0,
                  mini_channels=0,
                  # approx_product=None,
@@ -29,9 +31,10 @@ class QuantFC(nn.Linear):
         self.x_max = AverageMeter('x_max', ':6.2f')  # this is used to scale x during inference
 
         self.layer_type = 'LFC'
-        self.bit = bit
+        self.a_bit = a_bit
+        self.w_bit = w_bit
         self.product_bit = product_bit
-        self.product_approx = product_approximation(bit=self.bit,
+        self.product_approx = product_approximation(a_bit=self.a_bit, w_bit=self.w_bit,
                                                     digit_weight_mask=digit_weight_mask,
                                                     # approx_product=approx_product,
                                                     mini_batch_size=mini_batch_size,
@@ -42,8 +45,8 @@ class QuantFC(nn.Linear):
                                                     model=None,
                                                     OP=OP
                                                     )
-        self.act_quant = quantization(bit=self.bit, signed=True)
-        self.wgt_quant = quantization(bit=self.bit, signed=True)
+        self.act_quant = quantization(bit=self.a_bit, signed=True)
+        self.wgt_quant = quantization(bit=self.w_bit, signed=True)
         self.digit_weight = Parameter(digit_weight)
         self.alpha_act = Parameter(torch.tensor(0.))
         self.alpha_wgt = Parameter(torch.tensor(0.))
@@ -53,7 +56,7 @@ class QuantFC(nn.Linear):
 
     def forward(self, x):
         # fc_real = F.linear(x, self.weight, self.bias)
-        if self.bit == 32 or self.x_max_init_mode:  # float, without quantization
+        if (self.a_bit == 32 or self.w_bit == 32) or self.x_max_init_mode:  # float, without quantization
             if self.x_max_init_mode:
                 self.x_max.update(x.data.abs().max().detach().item())
                 if self.x_for_levels is None:
@@ -133,7 +136,8 @@ class QuantFC(nn.Linear):
 
 class QuantConv2d(nn.Conv2d):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False,
-                 weights=None, biases=None, bit=8, product_bit=19,
+                 weights=None, biases=None,
+                 a_bit=8, w_bit=8, product_bit=19,
                  mini_batch_size=0,
                  mini_channels=0,
                  # approx_product=None,
@@ -156,9 +160,10 @@ class QuantConv2d(nn.Conv2d):
         self.x_max = AverageMeter('x_max', ':6.2f')  # this is used to scale x during inference
 
         self.layer_type = 'QuantConv2d'
-        self.bit = bit
+        self.a_bit = a_bit
+        self.w_bit = w_bit
         self.product_bit = product_bit
-        self.product_approx = product_approximation(bit=self.bit,
+        self.product_approx = product_approximation(a_bit=self.a_bit, w_bit=self.w_bit,
                                                     digit_weight_mask=digit_weight_mask,
                                                     # approx_product=approx_product,
                                                     mini_batch_size=mini_batch_size,
@@ -169,8 +174,8 @@ class QuantConv2d(nn.Conv2d):
                                                     model=None,
                                                     OP=OP
                                                     )
-        self.act_quant = quantization(bit=self.bit, signed=True)
-        self.wgt_quant = quantization(bit=self.bit, signed=True)
+        self.act_quant = quantization(bit=self.a_bit, signed=True)
+        self.wgt_quant = quantization(bit=self.w_bit, signed=True)
         self.digit_weight = Parameter(digit_weight)
         self.alpha_act = Parameter(torch.tensor(0.))
         self.alpha_wgt = Parameter(torch.tensor(0.))
@@ -181,7 +186,7 @@ class QuantConv2d(nn.Conv2d):
     def forward(self, x):
         # conv_real = F.conv2d(x, self.weight, self.bias, self.stride,
         #                      self.padding, self.dilation, self.groups)
-        if self.bit == 32 or self.x_max_init_mode:  # float, without quantization
+        if (self.a_bit == 32 or self.w_bit == 32) or self.x_max_init_mode:  # float, without quantization
             if self.x_max_init_mode:
                 self.x_max.update(x.data.abs().max().detach().item())
                 if self.x_for_levels is None:
@@ -231,35 +236,30 @@ class QuantConv2d(nn.Conv2d):
                 # print(self.layer_type, '--> digit-weight: ', self.digit_weight.cpu().detach().numpy().round(3).reshape(-1))
                 # assert (x_q.dim() == 4 and weight_q.dim() == 4), 'x and weight should be 4-dim'
                 # n, c, h_in, w_in = x_q.shape
-                d, c, k, j = weight_q.shape
-                # x_q = x_q.div(max_x)
                 x_q = x_q.div(self.alpha_act.detach())
-                # weight_q = weight_q.div(max_w)
                 weight_q = weight_q.div(self.alpha_wgt.detach())
-                x_q = F.pad(x_q, self.padding * 2, value=0.)
-                x_q = x_q.unfold(2, k, self.stride[
-                    0])  # Todo: try to use F.unfold(input, kernel_size, dilation=1, padding=0, stride=1)
-                x_q = x_q.unfold(3, j, self.stride[1])
-                x_q = x_q.unsqueeze(1)
-                weight_q = weight_q.unsqueeze(2).unsqueeze(2).unsqueeze(0)
-                # xw = self.product_approx(x_q, weight_q)
-                out = self.product_approx(x_q, weight_q, self.digit_weight)
-                # print((x_q * weight_q - xw).norm() / torch.tensor(xw.numel()).float().sqrt())
-                # out = out * max_x * max_w
-                out = out * self.alpha_act.detach() * self.alpha_wgt.detach()
-                # out = xw.sum(dim=(5, 6, 2))
-                if self.bias is not None:
-                    assert self.bias.numel() == d, 'num of bias must be equal to out channels'
-                    out = out + self.bias.view(1, -1, 1, 1)  # 添加偏置值
+                if self.groups > 1:
+                    x_split = torch.split(x_q, self.in_channels // self.groups, dim=1)
+                    weight_split = torch.split(weight_q, self.out_channels // self.groups, dim=0)
+                    out = [self.sub_quant_conv2d(x_g, w_g) for x_g, w_g in zip(x_split, weight_split)]
+                    # Concatenate the results along the channel dimension
+                    return torch.cat(out, dim=1)
+                else:
+                    return self.sub_quant_conv2d(x_q, weight_q)
 
-                # print('(real - quant) rmse: {:.4e}\t'
-                #       '(quant - approx) rmse: {:.4e}\t'
-                #       '(real - approx) rmse: {:.4e}\t'.format(
-                #     (conv_real - conv_quant).norm() / torch.sqrt(torch.tensor(conv_real.numel())),
-                #     (out - conv_quant).norm() / torch.sqrt(torch.tensor(conv_real.numel())),
-                #     (conv_real - out).norm() / torch.sqrt(torch.tensor(conv_real.numel())),
-                # ))
-                return out
+    def sub_quant_conv2d(self, x_q, weight_q):
+        d, c, k, j = weight_q.shape
+        x_q = F.pad(x_q, self.padding * 2, value=0.)
+        x_q = x_q.unfold(2, k, self.stride[0])
+        x_q = x_q.unfold(3, j, self.stride[1])
+        x_q = x_q.unsqueeze(1)
+        weight_q = weight_q.unsqueeze(2).unsqueeze(2).unsqueeze(0)
+        out = self.product_approx(x_q, weight_q, self.digit_weight)
+        out = out * self.alpha_act.detach() * self.alpha_wgt.detach()
+        if self.bias is not None:
+            assert self.bias.numel() == d, 'num of bias must be equal to out channels'
+            out = out + self.bias.view(1, -1, 1, 1)  # 添加偏置值
+        return out
 
     def show_params(self):
         pass
@@ -330,14 +330,14 @@ class QuantConv2d(nn.Conv2d):
 #     return _pq().apply
 
 
-def product_approximation(bit, approx_product_code, approx_product_value, digit_weight_mask,
+def product_approximation(a_bit, w_bit, approx_product_code, approx_product_value, digit_weight_mask,
                           mini_batch_size=5, mini_channels=1, by_code=False, model=None, OP=None):
     if OP is not None:
         class _pq(torch.autograd.Function):
             @staticmethod
             def forward(ctx, x_l, w_l, digit_weight):
-                scale_w = 2 ** (bit - 1) - 1  # scale_x = 2 ** bit - 1
-                scale_x = 2 ** (bit - 1) - 1  # x_c = (x_l * scale_x).int() * (2 ** bit)
+                scale_w = 2 ** (w_bit - 1) - 1  # scale_x = 2 ** bit - 1
+                scale_x = 2 ** (a_bit - 1) - 1  # x_c = (x_l * scale_x).int() * (2 ** bit)
                 x_c = (x_l * scale_x).to(torch.int8)
                 w_c = (w_l * scale_w).to(torch.int8)
                 # print(OP[0](x_c, w_c).dtype)
@@ -401,12 +401,12 @@ def product_approximation(bit, approx_product_code, approx_product_value, digit_
             class _pq(torch.autograd.Function):
                 @staticmethod
                 def forward(ctx, x_l, w_l, digit_weight):
-                    scale_w = 2 ** (bit - 1) - 1
+                    scale_w = 2 ** (w_bit - 1) - 1
                     # scale_x = 2 ** bit - 1
-                    scale_x = 2 ** (bit - 1) - 1
+                    scale_x = 2 ** (a_bit - 1) - 1
                     # x_c = (x_l * scale_x).int() * (2 ** bit)
-                    x_c = (x_l * scale_x).to(torch.int32) + (2 ** (bit - 1))
-                    w_c = (w_l * scale_w).to(torch.int32) + (2 ** (bit - 1))
+                    x_c = (x_l * scale_x).to(torch.int32) + (2 ** (a_bit - 1))
+                    w_c = (w_l * scale_w).to(torch.int32) + (2 ** (w_bit - 1))
                     # print((x_l * scale_x).to(torch.int32))
                     # print(x_c.shape, w_c.shape)
                     batch_size = x_c.size(0)
@@ -494,10 +494,10 @@ def product_approximation(bit, approx_product_code, approx_product_value, digit_
             class _pq(torch.autograd.Function):
                 @staticmethod
                 def forward(ctx, x_l, w_l, digit_weight):
-                    scale_w = 2 ** (bit - 1) - 1
-                    scale_x = 2 ** (bit - 1) - 1
-                    x_c = (x_l * scale_x).to(torch.int32) + (2 ** (bit - 1))
-                    w_c = (w_l * scale_w).to(torch.int32) + (2 ** (bit - 1))
+                    scale_w = 2 ** (w_bit - 1) - 1
+                    scale_x = 2 ** (a_bit - 1) - 1
+                    x_c = (x_l * scale_x).to(torch.int32) + (2 ** (a_bit - 1))
+                    w_c = (w_l * scale_w).to(torch.int32) + (2 ** (w_bit - 1))
                     batch_size = x_c.size(0)
                     channel_size = w_c.size(1)
                     if x_c.ndim == w_c.ndim == 3:
@@ -674,7 +674,6 @@ def quantization(bit, signed=True, uniform=True, grids=None):
     return _pq().apply
 
 
-
 # class quantization_fn(nn.Module):
 #     def __init__(self, bit, signed=True, norm=False, alpha_init = torch.tensor(3.0)):
 #         super(quantization_fn, self).__init__()
@@ -747,33 +746,37 @@ def quantization(bit, signed=True, uniform=True, grids=None):
 
 def get_conv_params(m):
     (in_channels, out_channels, kernel_size,
-     stride, padding, weights, biases) = (m.in_channels, m.out_channels, m.kernel_size,
-                                          m.stride, m.padding, m.weight, m.bias)
+     stride, padding, dilation, groups, weights, biases) = (m.in_channels, m.out_channels, m.kernel_size,
+                                                            m.stride, m.padding, m.dilation, m.groups, m.weight, m.bias)
     bias = False if biases is None else True
-    if m.dilation != (1, 1) or m.groups != 1:
-        raise ValueError('dilation > 1 or groups > 1 nor supported')
+    if m.dilation != (1, 1):
+        raise ValueError('dilation > 1')
     return (in_channels, out_channels, kernel_size,
-            stride, padding, weights, biases, bias)
+            stride, padding, dilation, groups, weights, biases, bias)
+
 
 def get_fc_params(m):
     (in_features, out_features, weights, biases) = (m.in_features, m.out_features, m.weight, m.bias)
     bias = False if biases is None else True
     return (in_features, out_features, weights, biases, bias)
 
+
 def replace_conv_fc(m, args):
     for k in m._modules.keys():
         if m._modules[k]._modules.keys().__len__() == 0:
             if isinstance(m._modules[k], torch.nn.Conv2d):
                 (in_channels, out_channels, kernel_size,
-                 stride, padding, weights, biases, bias) = get_conv_params(m._modules[k])
+                 stride, padding, dilation, groups, weights, biases, bias) = get_conv_params(m._modules[k])
                 if args.mini_channels == 0 or args.mini_channels > out_channels:
                     mini_channels = out_channels
                 else:
                     mini_channels = args.mini_channels
                 m._modules[k] = QuantConv2d(in_channels, out_channels, kernel_size,
-                                            stride=stride, padding=padding, dilation=1, groups=1, bias=bias,
+                                            stride=stride, padding=padding,
+                                            dilation=dilation, groups=groups, bias=bias,
                                             weights=weights, biases=biases,
-                                            bit=args.bit, product_bit=args.product_bit,
+                                            a_bit=args.a_bit, w_bit=args.w_bit,
+                                            product_bit=args.product_bit,
                                             mini_batch_size=args.mini_batch_size,
                                             mini_channels=mini_channels,
                                             # approx_product=args.approx_product,
@@ -790,7 +793,7 @@ def replace_conv_fc(m, args):
                 (in_features, out_features, weights, biases, bias) = get_fc_params(m._modules[k])
                 m._modules[k] = QuantFC(in_features, out_features,
                                         bias=bias, weights=weights, biases=biases,
-                                        bit=args.bit, product_bit=args.product_bit,
+                                        a_bit=args.a_bit, w_bit=args.w_bit, product_bit=args.product_bit,
                                         mini_batch_size=args.mini_batch_size,
                                         mini_channels=0,
                                         # approx_product=args.approx_product,

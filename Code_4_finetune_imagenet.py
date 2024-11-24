@@ -2,78 +2,54 @@ import gc
 import time
 import torch.nn as nn
 import os
-import cgp
-from cgp import ConstantTrue, ConstantFalse, Identity, NOT, NOR2, NAND2, XNOR2, OR2, AND2, XOR2
 import torch
-import pickle
 import logging
 import numpy as np
 from kuai_log import get_logger
 import encode_tools as tools
-# from encode_tools import gen_uniform_levels_input_encode, gen_input_matrix
-from models import NN_LUT
-# from encode_tools import convert_searched_results
-# import torch.nn.functional as F
-# import torchvision
 
 # available models please use torchvision.models.list_models()
 # or find on https://pytorch.org/vision/stable/models.html#classification
 
-# from torchvision.models import ResNet50_Weights
-# from torchvision.models.quantization import ResNet50_QuantizedWeights
-# from torchvision.models.quantization import resnet50 as resnet50_Quantized
-# import torch
-# model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet20", pretrained=True)
-# from pprint import pprint
-# pprint(torch.hub.list("chenyaofo/pytorch-cifar-models", force_reload=True))
-# https://github.com/weiaicunzai/pytorch-cifar100/blob/master/utils.py
 import argparse
 
-parser = argparse.ArgumentParser(description='PyTorch Cifar10 Training')
+parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 
-# arch choices for cifar10: resnet18
-# arch choices for cifar100: resnet20
-# arch choices for imagenet: alexnet, resnet50
-parser.add_argument('--bit', type=int, default=8)
+parser.add_argument('--arch', type=str, default='resnet50', choices=['resnet50', 'efficientnet_b0'])
+
+parser.add_argument('--a-bit', type=int, default=8, choices=[1, 2, 3, 4, 5, 6, 7, 8, 32])
+parser.add_argument('--w-bit', type=int, default=8, choices=[1, 2, 3, 4, 5, 6, 7, 8, 32])
 
 parser.add_argument('--baseline', action='store_true')
 
-parser.add_argument('--NUQ-bit', type=int, default=4)
-parser.add_argument('--uniform', type=bool, default=True)
-parser.add_argument('--target', type=str, default='general', choices=['general', 'specific'])
-
 parser.add_argument('--retrain', action='store_true')
 parser.add_argument('--test', action='store_true')
-parser.add_argument('--gpu', type=int, default=0, choices=[0, 1, 2, 3])
+parser.add_argument('--gpu', default='None', choices=['None', '0', '1', '2', '3']) 
 parser.add_argument('--product-bit', type=int, default=0)
-# parser.add_argument('--target', type=int, default=48)
-parser.add_argument('--search', type=int, default=64)
-parser.add_argument('--cols', type=int, default=1)
+parser.add_argument('--search', type=int, default=128)
+parser.add_argument('--cols', type=int, default=2)
 parser.add_argument('--rows', type=int, default=256)
-parser.add_argument('--th', type=float, default=1.0)
-parser.add_argument('--epochs', type=int, default=100)
+parser.add_argument('--th', type=float, default=0.1)
+parser.add_argument('--epochs', type=int, default=25)
 parser.add_argument('--fixed-type', type=str, default='big', choices=['big', 'small'])
-parser.add_argument('--fixed-num', type=int, default=1)
+parser.add_argument('--fixed-num', type=int, default=64)
 parser.add_argument('--delta', type=int, default=0)
 
-parser.add_argument('--lr', type=float, default=0.01)
-# parser.add_argument('--devices', type=str, default='0,1,2,3')
-# config
+parser.add_argument('--lr', type=float, default=0.00001)
 
 # default
+# --arch efficientnet_b0 --a-bit 8 --w-bit 8 --baseline --gpu 0 --test
 # python3 Code_2_finetune_cifar10.py --retrain --gpu 0 --product-bit 42 --search 64 --cols 1 --rows 256 --th 1.0 --epochs 23 --fixed-type big --fixed-num 0
 # python3 Code_2_finetune_cifar10.py --retrain --bit 8 --gpu 0 --product-bit 42 --search 64 --cols 1 --rows 256 --th 1.5 --epochs 23 --fixed-type big --fixed-num 42 --delta 10
 args = parser.parse_args()
+args.gpu = None if args.gpu == 'None' else int(args.gpu)
 args.dataset = 'imagenet'
-args.arch = 'resnet50'
 args.data = '/nas/ei/share/TUEIEDAprojects/NNDatasets/imagenet2012'
 # args.running_cache = '/home/ge26rem/lrz-nashome/LRZ/SourceCode/CGP_search/running_cache/'
 args.running_cache = './running_cache/'
 
-if not args.uniform:
-    assert 2 <= args.NUQ_bit <= 4, 'unsupported bit-width'
-
-log_path = f"retrain-{args.dataset}-{args.arch}-{args.rows}row-{args.cols}col-{args.product_bit}bit-" \
+log_path = f"retrain-{args.dataset}-{args.arch}-{args.rows}row-{args.cols}col-" \
+           f"{args.product_bit}bit-a-{args.a_bit}bit-w-{args.w_bit}bit" \
            f"{args.search}b-{args.th}th-{args.fixed_type}fixtype-{args.fixed_num}fixnum-{args.delta}delta.log"
 logger = get_logger(name='retrain', level=logging.INFO, log_filename=log_path,
                     log_path='./retrain_logs/', is_add_file_handler=True,
@@ -85,14 +61,8 @@ def main():
     # global args
 
     args.workers = 4
-
-    # args.gpu = 1
-    # args.bit = 8
-    # args.arch = 'alexnet'  # ['resnet50', 'alexnet']
-    # args.product_bit = 7
-    # [7: 1e-1,  27: 1e-2,  48: 1e-3,  59: 1e-4,  64: 1e-5,  65: 7.6e-7,  66: 6.3e-7,  89: 4e-7]
     args.f_info = './search_results/searched_info-Uniform-{}bit.pickle'.format(args.product_bit)
-    args.product_bit = 0 if args.bit == 32 else args.product_bit
+    args.product_bit = 0 if (args.a_bit == 32 or args.w_bit == 32) else args.product_bit
     args.print_freq = 1
 
     if args.product_bit == 0:
@@ -103,17 +73,21 @@ def main():
                                                        cols=args.cols, rows=args.rows)
         if args.delta > 0:
             searched_info = tools.apply_delta_for_finetune(searched_info, delta=args.delta)
+
+        if searched_info[0]['bit-width of product'] < args.product_bit:
+            if args.fixed_num == args.product_bit:
+                args.product_bit = searched_info[0]['bit-width of product']
+                args.fixed_num = searched_info[0]['bit-width of product']
+
     args.OP = None
     args.model = None
     args.by_code = True
-    if searched_info[0]['bit-width of product'] < args.product_bit:
-        if args.fixed_num == args.product_bit:
-            args.product_bit = searched_info[0]['bit-width of product']
-            args.fixed_num = searched_info[0]['bit-width of product']
-    args.approx_product_value, args.approx_product_code, args.digit_weight, args.rmse = get_approx_product(searched_info,
-                                                                                                           bit=args.bit,
-                                                                                                           product_bit=args.product_bit,
-                                                                                                           f_info=args.f_info)
+    args.approx_product_value, \
+        args.approx_product_code, \
+        args.digit_weight, args.rmse = tools.get_approx_product(searched_info,
+                                                                a_bit=args.a_bit, w_bit=args.w_bit,
+                                                                product_bit=args.product_bit,
+                                                                f_info=args.f_info)
 
     if args.product_bit == 0:
         idx = None
@@ -161,10 +135,16 @@ def main():
         args.mini_batch_size = args.batch_size
 
     print('-----> build model and load pretrained weights')
-    from torchvision.models import resnet50
     if args.arch == 'resnet50':
-        model = resnet50(weights='IMAGENET1K_V1')
-        resize_size = 256
+        from torchvision.models import resnet50, ResNet50_Weights
+        weights = ResNet50_Weights.IMAGENET1K_V1
+        preprocess = weights.transforms()
+        model = resnet50(weights=weights)
+    elif args.arch == 'efficientnet_b0':
+        from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+        weights = EfficientNet_B0_Weights.IMAGENET1K_V1
+        preprocess = weights.transforms()
+        model = efficientnet_b0(weights=weights)
     else:
         raise ValueError('Todo for other models')
 
@@ -174,6 +154,16 @@ def main():
     print('-------> starting replace original Conv2d layer and Linear layer with proposed QuantConv2d and QuantFC')
     model = replace_conv_fc(model, args=args)
     print('-------> all Conv2d and Linear layer are replaced with proposed QuantConv2d and QuantFC layer!')
+    t_conv, t_fc = 0, 0
+    for m in model.modules():
+        if isinstance(m, QuantConv2d):
+            t_conv = t_conv + 1
+            # if t_conv == 1 or t_conv == 5:
+            #     m.product_bit = 0
+        if isinstance(m, QuantFC):
+            t_fc = t_fc + 1
+            # m.product_bit = 0
+    print('total # conv layers:', t_conv, '\ttotal # fc layers:', t_fc)
     # print(list(model.modules())[0])
     if args.gpu is not None:
         model = model.cuda(args.gpu)
@@ -181,15 +171,10 @@ def main():
     # data loader by official torchversion:
     # --------------------------------------------------------------------------
     print('==> Using Pytorch Dataset')
-    # import torch
     import torchvision
-    import torchvision.transforms as transforms
     print('------> loading dataset of ImageNet')
-    input_size = 224  # image resolution for resnets
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
-
-    # torchvision.set_image_backend('accimage')
 
     def sub_dataset(dataset: [torchvision.datasets.ImageFolder, None] = None, ratio: float = 0.1):
         assert dataset is not None, 'invalid dataset'
@@ -211,63 +196,36 @@ def main():
                 class_id = class_id + 1
                 sub_class_id = []
             print(f'\r[{i}/{len(dataset.targets)}]\t{i/len(dataset.targets):.2%}', end='', flush=True)
+        print("sub_dataset, done!")
         dataset_new.imgs = [dataset.imgs[i] for i in sub_dataset_id]
         dataset_new.samples = [dataset.samples[i] for i in sub_dataset_id]
         dataset_new.targets = [dataset.targets[i] for i in sub_dataset_id]
         return dataset_new
 
-    train_dataset = torchvision.datasets.ImageFolder(
-        traindir,
-        transforms.Compose([
-            transforms.Resize(resize_size, interpolation=transforms.InterpolationMode.BILINEAR),
-            # transforms.RandomCrop(input_size),
-            # transforms.RandomHorizontalFlip(),  # Todo
-            transforms.CenterCrop(input_size),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]))
+    train_dataset = torchvision.datasets.ImageFolder(traindir, transform=preprocess)
 
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        persistent_workers=True,
-        batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, persistent_workers=True,
+                                               batch_size=args.batch_size, shuffle=True,
+                                               num_workers=args.workers, pin_memory=True)
 
-    val_dataset = torchvision.datasets.ImageFolder(
-        valdir,
-        transforms.Compose([
-            transforms.Resize(resize_size, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(input_size),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]))
+    val_dataset = torchvision.datasets.ImageFolder(valdir, transform=preprocess)
 
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        persistent_workers=True,
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, persistent_workers=True,
+                                             batch_size=args.batch_size, shuffle=False,
+                                             num_workers=args.workers, pin_memory=True)
 
     criterion = nn.CrossEntropyLoss()
     if args.gpu is not None:
         criterion = criterion.cuda(args.gpu)
 
-    t_conv, t_fc = 0, 0
-    for m in model.modules():
-        if isinstance(m, QuantConv2d):
-            t_conv = t_conv + 1
-            # if t_conv == 1 or t_conv == 5:
-            #     m.product_bit = 0
-        if isinstance(m, QuantFC):
-            t_fc = t_fc + 1
-            # m.product_bit = 0
-    print('total # conv layers:', t_conv, '\ttotal # fc layers:', t_fc)
+
 
     if args.test:
         print('-------> testing begins! Good luck to you!\n'
-              'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\tbit: {args.bit}\t'
+              'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\t'
+              'a_bit: {args.a_bit}\tw_bit: {args.w_bit}\t'
               'product bit: {args.product_bit}\trmse: {args.rmse:.4e}'.format(args=args))
-        if args.bit == 32:
+        if args.a_bit == 32 and args.w_bit == 32:
             # close find scale of x mode
             for m in model.modules():
                 if isinstance(m, QuantConv2d) or isinstance(m, QuantFC):
@@ -278,6 +236,8 @@ def main():
             acc1, acc5, loss_avg = validate(train_loader, model, criterion, args)
             print('-----------> 32bit float inference, done!')
             exit()
+        elif args.a_bit == 32 or args.w_bit == 32:
+            raise ValueError("not supported")
         else:
             # this validate is used for find scale of x in each layer
             print('-----------> starting find scale of x in each layer, 32bit float inference......')
@@ -292,27 +252,26 @@ def main():
 
             # this validate is used for real inference
             print('-----------> starting real inference......')
+            # acc1, acc5, loss_avg = validate(train_loader, model, criterion, args)
             acc1, acc5, loss_avg = validate(val_loader, model, criterion, args)
-            acc1, acc5, loss_avg = validate(train_loader, model, criterion, args)
             print('-----------> real inference, done!')
-            exit()
+            # exit()
         print('-------> testing done! info of this test:\n'
-              'arc: {args.arch}\tdataset: {args.dataset}\tbit: {args.bit}\t'
+              'arc: {args.arch}\tdataset: {args.dataset}\ta_bit: {args.a_bit}\tw_bit: {args.w_bit}\t'
               'product bit: {args.product_bit}\trmse: {args.rmse:.4e}'.format(args=args))
         contents = 'testing result: \n' \
                    'neural network architecture: {args.arch}\n' \
                    'dataset: {args.dataset}\n' \
-                   'target: {args.target}\n' \
-                   'uniform: {args.uniform}\n' \
-                   'quantization bit: {args.bit}\n' \
+                   'quantization bit: a{args.a_bit}-bit / w{args.w_bit}-bit\n\n' \
                    'product bit: {args.product_bit}\n' \
                    'root mean squre error: {args.rmse:.4e}\n' \
                    'Acc-top1: {top1:.4f}%\n' \
                    'Acc-top5: {top5:.4f}%\n' \
                    'Loss: {loss:.4f}'.format(args=args, top1=acc1, top5=acc5, loss=loss_avg)
-        subject = '{args.arch}({args.dataset}) / {args.bit}-bit / {args.product_bit}-bit of product'.format(args=args)
-        print(subject)
-        print(contents)
+        subject = '{args.arch}({args.dataset}) / ' \
+                  'a{args.a_bit}-bit / w{args.w_bit}-bit / {args.product_bit}-bit of product'.format(args=args)
+        logger.info(subject)
+        logger.info(contents)
     elif args.retrain:
         # this validate is used for find scale of x in each layer
         print('-----------> starting find scale of x in each layer, 32bit float inference......')
@@ -339,8 +298,8 @@ def main():
 
         # which parameters can be learned?
         logger.info('-----> enable or disable learnable parameters')
-        if args.uniform:
-            model_params = []
+        model_params = []
+        if args.arch == 'resnet50':
             for name, param in model.named_parameters():
                 if 'alpha_act' in name:
                     # param.requires_grad = True
@@ -368,78 +327,85 @@ def main():
                 else:
                     print('No, disable to learn:', name)
             optimizer = torch.optim.SGD(model_params, lr=args.lr, momentum=0.9, weight_decay=1e-4)
-            logger.info(f'learning rate = {args.lr}')
+            sub_dataset_ratio = 0.01
+        elif args.arch == 'efficientnet_b0':
+            for name, param in model.named_parameters():
+                if 'alpha_act' in name:
+                    # param.requires_grad = True
+                    # model_params += [{'params': [param], 'lr': 1e-5, 'weight_decay': 1e-4}]
+                    param.requires_grad = False
+                    model_params += [{'params': [param]}]
+                elif 'alpha_wgt' in name:
+                    # param.requires_grad = True
+                    # model_params += [{'params': [param], 'lr': 1e-5, 'weight_decay': 1e-4}]
+                    param.requires_grad = False
+                    model_params += [{'params': [param]}]
+                elif 'digit_weight' in name:
+                    # param.requires_grad = True
+                    # model_params += [{'params': [param], 'lr': 1e-12, 'weight_decay': 1e-7}]
+                    param.requires_grad = False
+                    model_params += [{'params': [param]}]
+                # elif 'fc' in name and ('weight' in name or 'bias' in name):
+                #     param.requires_grad = True
+                #     model_params += [{'params': [param], 'lr': 1e-4, 'weight_decay': 1e-4}]
+                else:
+                    param.requires_grad = True
+                    model_params += [{'params': [param]}]
+                if param.requires_grad:
+                    print('Yes, enable to learn:', name)
+                else:
+                    print('No, disable to learn:', name)
+            optimizer = torch.optim.RMSprop(model_params, lr=args.lr, momentum=0.9, weight_decay=1e-5, alpha=0.9)
+            sub_dataset_ratio = 0.01
+        else:
+            raise ValueError('Todo for other models')
+        logger.info(f'learning rate = {args.lr}')
         # logger.info(f'the following result of this test is used for testing before retrain')
         # acc1, acc5, loss_avg = validate(val_loader, model, criterion, args)
         # logger.info(f'the above result of this test is used for testing before retrain')
         # exit()
         logger.info(f'-------> retraining begins! Good luck to you!\n'
-                    f'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\tbit: {args.bit}\t'
+                    f'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\t'
+                    f'a_bit: {args.a_bit}\tw_bit: {args.w_bit}\t'
                     f'product bit: {args.product_bit}\trmse: {args.rmse:.4e}')
-        sub_dataset_ratio = 0.01
         logger.info(f'sub_dataset_ratio = {sub_dataset_ratio:.2%}')
+        best_acc = None
         for epoch in range(args.epochs):
-            train_dataset = torchvision.datasets.ImageFolder(
-                traindir,
-                transforms.Compose([
-                    transforms.Resize(resize_size, interpolation=transforms.InterpolationMode.BILINEAR),
-                    # transforms.RandomCrop(input_size),
-                    # transforms.RandomHorizontalFlip(),  # Todo
-                    transforms.CenterCrop(input_size),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ]))
-
+            train_dataset = torchvision.datasets.ImageFolder(traindir, transform=preprocess)
             train_dataset = sub_dataset(train_dataset, ratio=sub_dataset_ratio)
-
-            train_loader = torch.utils.data.DataLoader(
-                train_dataset,
-                persistent_workers=True,
-                batch_size=args.batch_size, shuffle=True,
-                num_workers=args.workers, pin_memory=True)
-
-            # val_dataset = torchvision.datasets.ImageFolder(
-            #     valdir,
-            #     transforms.Compose([
-            #         transforms.Resize(resize_size, interpolation=transforms.InterpolationMode.BILINEAR),
-            #         transforms.CenterCrop(input_size),
-            #         transforms.ToTensor(),
-            #         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            #     ]))
-
-            # val_dataset = sub_dataset(val_dataset, ratio=sub_dataset_ratio)
-            #
-            # val_loader = torch.utils.data.DataLoader(
-            #     val_dataset,
-            #     persistent_workers=True,
-            #     batch_size=args.batch_size, shuffle=False,
-            #     num_workers=args.workers, pin_memory=True)
+            train_loader = torch.utils.data.DataLoader(train_dataset, persistent_workers=True,
+                                                       batch_size=args.batch_size, shuffle=True,
+                                                       num_workers=args.workers, pin_memory=True)
             train(train_loader, model, criterion, optimizer, epoch, args, writer=None, end_batch=None)
             acc1, acc5, loss_avg = validate(val_loader, model, criterion, args)
+            if best_acc is None or acc1 > best_acc:
+                best_acc = acc1
+            logger.info(f'Test * Acc@1 {acc1:.3f}% (Best Acc@1 {best_acc:.3f}%)Acc@5 {acc5:.3f}%')
 
         # this validate is used for real inference
         print('-----------> starting testing after retraining......\n'
-              'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\tbit: {args.bit}\t'
+              'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\t'
+              'a_bit: {args.a_bit}\tw_bit: {args.w_bit}\t'
               'product bit: {args.product_bit}\trmse: {args.rmse:.4e}'.format(args=args))
         # acc1, acc5, loss_avg = validate(val_loader, model, criterion, args)
         print('-----------> testing after retraining, done!\n'
-              'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\tbit: {args.bit}\t'
+              'info of this test:\narc: {args.arch}\tdataset: {args.dataset}\t'
+              'a_bit: {args.a_bit}\tw_bit: {args.w_bit}\t\t'
               'product bit: {args.product_bit}\trmse: {args.rmse:.4e}'.format(args=args))
         contents = 'testing result: \n' \
                    'neural network architecture: {args.arch}\n' \
                    'dataset: {args.dataset}\n' \
-                   'target: {args.target}\n' \
-                   'uniform: {args.uniform}\n' \
                    'epochs: {args.epochs}\n' \
-                   'quantization bit: {args.bit}\n' \
+                   'quantization bit: a_bit: {args.a_bit}\tw_bit: {args.w_bit}\t\n' \
                    'product bit: {args.product_bit}\n' \
                    'root mean squre error: {args.rmse:.4e}\n' \
                    'Acc-top1: {top1:.4f}%\n' \
                    'Acc-top5: {top5:.4f}%\n' \
                    'Loss: {loss:.4f}'.format(args=args, top1=acc1, top5=acc5, loss=loss_avg)
-        subject = '{args.arch}({args.dataset}) / {args.bit}-bit / {args.product_bit}-bit of product'.format(args=args)
-        print(subject)
-        print(contents)
+        subject = '{args.arch}({args.dataset}) / ' \
+                  'a_bit: {args.a_bit}\tw_bit: {args.w_bit}\t / {args.product_bit}-bit of product'.format(args=args)
+        logger.info(subject)
+        logger.info(contents)
     else:
         raise ValueError('test or retrain? please specify it!')
 
@@ -549,194 +515,6 @@ def validate(val_loader, model, criterion, args, verbose=True):
     return top1.avg, top5.avg, losses.avg
 
 
-def get_approx_product(searched_info, bit=8, product_bit=20, f_info='../backup/searched_info.pickle'):
-    def test_fc(approx_product):
-        def p(x_l, w_l, x_sign=True, w_sign=True):
-            x_c = (x_l * 127).int() & 255 if x_sign else (x_l * 255).int()
-            w_c = (w_l * 127).int() & 255 if w_sign else (w_l * 255).int()
-            idx = x_c * 256 + w_c
-            return approx_product[idx].sum(2)
-
-        def q(x, sign=True):
-            m = x.abs().max()
-            s = 127 if sign else 255
-            return x.div(m).mul(s).round().div(s).mul(m)
-
-        x, w = torch.rand(2, 4) * 2 - 1, torch.rand(3, 4) * 2 - 1
-        x, w = x.unsqueeze(1), w.unsqueeze(0)
-        fc_real = (x * w).sum(2)
-        m_x, m_w = x.abs().max(), w.abs().max()
-        x_q, w_q = q(x, sign=True), q(w, sign=True)
-        fc_quant = (x_q * w_q).sum(2)
-        x_l, w_l = x_q / m_x, w_q / m_w
-        fc_approx = p(x_l, w_l, x_sign=True, w_sign=True) * m_x * m_w
-
-        print('real   product: {}\n'
-              'quant  product: {}\n'
-              'approx product: {}\n'.format(fc_real, fc_quant, fc_approx))
-
-    def test_fc_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight):
-        def p(x_l, w_l, x_sign=True, w_sign=True):
-            x_c = (x_l * 127).int() + 128 if x_sign else (x_l * 255).int()
-            w_c = (w_l * 127).int() + 128 if w_sign else (w_l * 255).int()
-            # return approx_product_value_2d[x_c, w_c].sum(2)
-            return (approx_product_code_2d[x_c, w_c].sum(2) * digit_weight).sum(2)
-
-        def q(x, sign=True):
-            m = x.abs().max()
-            s = 127 if sign else 255
-            return x.div(m).mul(s).round().div(s).mul(m)
-
-        x, w = torch.rand(2, 4) * 2 - 1, torch.rand(3, 4) * 2 - 1
-        x, w = x.unsqueeze(1), w.unsqueeze(0)
-        fc_real = (x * w).sum(2)
-        m_x, m_w = x.abs().max(), w.abs().max()
-        x_q, w_q = q(x, sign=True), q(w, sign=True)
-        fc_quant = (x_q * w_q).sum(2)
-        x_l, w_l = x_q / m_x, w_q / m_w
-        fc_approx = p(x_l, w_l, x_sign=True, w_sign=True) * m_x * m_w
-
-        print('real   product: {}\n'
-              'quant  product: {}\n'
-              'approx product: {}\n'.format(fc_real, fc_quant, fc_approx))
-
-    def test_conv(approx_product, bias=None, stride=(1, 1), padding=(1, 1), dilation=(1, 1), groups=1):
-        import torch.nn.functional as F
-
-        def conv2d(x, w, stride, padding, approx=False, x_sign=True, w_sign=True):
-            d, c, k, j = w.shape
-            x_pad = F.pad(x, padding * 2, value=0.)
-            x_pad = x_pad.unfold(2, k, stride[0])
-            x_pad = x_pad.unfold(3, j, stride[1])
-            x_pad = x_pad.unsqueeze(1)
-            w = w.unsqueeze(2).unsqueeze(2).unsqueeze(0)
-            if approx:
-                return p(x_pad, w, x_sign=x_sign, w_sign=w_sign)  # .sum(dim=(5,6,2))
-            else:
-                return x_pad.mul(w).sum(dim=(5, 6, 2))
-
-        def p(x_l, w_l, x_sign=True, w_sign=True):
-            x_c = (x_l * 127).int() & 255 if x_sign else (x_l * 255).int()
-            w_c = (w_l * 127).int() & 255 if w_sign else (w_l * 255).int()
-            idx = x_c * 256 + w_c
-            return approx_product[idx].sum(dim=(5, 6, 2))
-            # x_c = x_c * 256
-            # xw_c = []
-            # for di in range(w_c.shape[1]):
-            #     xw_c.append(approx_product[w_c[:, di:di + 1, :, :, :, :, :] + x_c].sum(dim=(5, 6, 2)))
-            # xw_c = torch.concat(xw_c, dim=1)
-            # return xw_c
-            # idx = x_c + w_c
-            # return approx_product[idx]
-
-        def q(x, sign=True):
-            m = x.abs().max()
-            s = 127 if sign else 255
-            return x.div(m).mul(s).round().div(s).mul(m)
-
-        # bias, stride, padding, dilation, groups = None, (1, 1), (1, 1), (1, 1), 1
-        x, w = torch.rand(2, 3, 4, 4), torch.rand(3, 3, 2, 2) * 2 - 1
-        m_x, m_w = x.abs().max(), w.abs().max()
-        # real
-        # F.conv2d(x,w,bias,stride,padding,dilation,groups) == x_pad.mul(w).sum(dim=(5,6,2))
-        conv_real = conv2d(x, w, stride, padding)  # .sum(dim=(5,6,2))
-        # quant
-        x_q, w_q = q(x, sign=True), q(w, sign=True)
-        conv_quant = conv2d(x_q, w_q, stride, padding)
-        # approx
-        x_l, w_l = x_q / m_x, w_q / m_w
-        conv_approx = conv2d(x_l, w_l, stride, padding, approx=True, x_sign=True, w_sign=True) * m_x * m_w
-
-        print('real   product: {}\n'
-              'quant  product: {}\n'
-              'approx product: {}\n'.format(conv_real, conv_quant, conv_approx))
-
-    def test_conv_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight,
-                          bias=None, stride=(1, 1), padding=(1, 1), dilation=(1, 1), groups=1):
-        import torch.nn.functional as F
-
-        def conv2d(x, w, stride, padding, approx=False, x_sign=True, w_sign=True):
-            d, c, k, j = w.shape
-            x_pad = F.pad(x, padding * 2, value=0.)
-            x_pad = x_pad.unfold(2, k, stride[0])
-            x_pad = x_pad.unfold(3, j, stride[1])
-            x_pad = x_pad.unsqueeze(1)
-            w = w.unsqueeze(2).unsqueeze(2).unsqueeze(0)
-            if approx:
-                return p(x_pad, w, x_sign=x_sign, w_sign=w_sign)  # .sum(dim=(5,6,2))
-            else:
-                return x_pad.mul(w).sum(dim=(5, 6, 2))
-
-        def p(x_l, w_l, x_sign=True, w_sign=True):
-            x_c = (x_l * 127).int() + 128 if x_sign else (x_l * 255).int()
-            w_c = (w_l * 127).int() + 128 if w_sign else (w_l * 255).int()
-            # return approx_product_value_2d[x_c, w_c].sum(dim=(5, 6, 2))
-            return (approx_product_code_2d[x_c, w_c, :].sum(dim=(5, 6, 2)) * digit_weight).sum(4)
-            # xw_c = []
-            # for di in range(w_c.shape[1]):
-            #     xw_c.append(approx_product[w_c[:, di:di + 1, :, :, :, :, :] + x_c].sum(dim=(5, 6, 2)))
-            # xw_c = torch.concat(xw_c, dim=1)
-            # return xw_c
-            # idx = x_c + w_c
-            # return approx_product[idx]
-
-        def q(x, sign=True):
-            m = x.abs().max()
-            s = 127 if sign else 255
-            return x.div(m).mul(s).round().div(s).mul(m)
-
-        # bias, stride, padding, dilation, groups = None, (1, 1), (1, 1), (1, 1), 1
-        x, w = torch.rand(2, 3, 4, 4), torch.rand(3, 3, 2, 2) * 2 - 1
-        m_x, m_w = x.abs().max(), w.abs().max()
-        # real
-        # F.conv2d(x,w,bias,stride,padding,dilation,groups) == x_pad.mul(w).sum(dim=(5,6,2))
-        conv_real = conv2d(x, w, stride, padding)  # .sum(dim=(5,6,2))
-        # quant
-        x_q, w_q = q(x, sign=True), q(w, sign=True)
-        conv_quant = conv2d(x_q, w_q, stride, padding)
-        # approx
-        x_l, w_l = x_q / m_x, w_q / m_w
-        conv_approx = conv2d(x_l, w_l, stride, padding, approx=True, x_sign=True, w_sign=True) * m_x * m_w
-
-        print('real   product: {}\n'
-              'quant  product: {}\n'
-              'approx product: {}\n'.format(conv_real, conv_quant, conv_approx))
-
-    approx_product_value_2d, approx_product_code_2d, digit_weight = None, None, None
-    if product_bit == 0:
-        # return None, 0.0
-        return None, None, None, 0.0
-    else:
-        # import pickle
-        # # f_info = '../backup/searched_info.pickle'
-        # with open(f_info, 'rb') as f:
-        #     searched_info = pickle.load(f)
-        # # print(product_bit, type(product_bit))
-        for info in searched_info:
-            if info['bit-width of product'] == product_bit:
-                print('bit-width of product: {}\t'
-                      'root mean square error:{:.2e}'.format(info['bit-width of product'],
-                                                             info['root mean square error']))
-                # (info['code of activation'] * 2 ** torch.arange(0, 8).flip(0).view(1, -1)).sum(1)
-                # (info['code of weight'] * 2 ** torch.arange(0, 8).flip(0).view(1, -1)).sum(1)
-                assert info['bit-width of weight'] == info['bit-width of activation'] == bit
-                # idx = (info['input code of product'] * 2 ** torch.arange(0, 2 * bit).flip(0).view(-1, 1)).sum(0)
-                # approx_product = torch.zeros_like(idx).float()
-                # approx_product[idx] = info['approximate value of product']
-                approx_product_code_2d = info['output code of product'].view(product_bit, 256, 256).permute(1, 2, 0)
-                approx_product_value_2d = info['approximate value of product'].view(256, 256)
-                digit_weight = info['digit-weight of product code']
-                # approx_product[idx] = info['real value of product']
-                # test_fc(approx_product)
-                # test_conv(approx_product)
-                # test_fc_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight)
-                # test_conv_by_code(approx_product_value_2d, approx_product_code_2d, digit_weight)
-                # return approx_product, info['root mean square error']
-                return approx_product_value_2d, approx_product_code_2d, digit_weight, info['root mean square error']
-        if None in (approx_product_value_2d, approx_product_code_2d, digit_weight):
-            raise ValueError('did not find product_bit={} in {}'.format(product_bit, f_info))
-
-
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
@@ -799,7 +577,7 @@ class AverageMeter(object):
 
 
 if __name__ == '__main__':
-    if args.baseline and (args.bit == 32 or args.bit == 8):
+    if args.baseline:  # and (args.bit == 32 or 0 < args.bit <= 8):
         args.product_bit = 0
         main()
     elif args.test or args.retrain:
