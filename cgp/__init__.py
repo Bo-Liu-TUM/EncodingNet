@@ -15,7 +15,7 @@ from .hl_api import evolve
 from .individual import IndividualMultiGenome, IndividualSingleGenome
 from .node import OperatorNode
 from .node_impl import Add, ConstantFloat, Div, IfElse, Mul, Parameter, Pow, Sub
-from .node_my import ConstantTrue, ConstantFalse, Identity, NOT, NOR2, NAND2, XNOR2, OR2, AND2, XOR2
+from .node_my import Identity, NOT, NOR2, NAND2, XNOR2, OR2, AND2, XOR2
 from .population import Population
 
 warnings.simplefilter("always", DeprecationWarning)

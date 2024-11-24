@@ -5,65 +5,26 @@ import numpy as np
 import pandas as pd
 import pickle
 
-# def gen_uniform_levels_input_encode(bit, signed=True, norm_to_one=True):
-#     l = np.arange(2 ** bit)
-#     scale = (2 ** (bit - 1) - 1) if signed else (2 ** bit - 1)
-#     l = l - 2 ** (bit - 1) if signed else l
-#     # c = bin(ll & (2 ** bit - 1))[2:]  # generate two's complement
-#     # t = '0' * (bit - len(c)) + c  # add 0 to the high significant bit
-#     code = ['0' * (bit - len(bin(ll & (2 ** bit - 1))[2:])) + bin(ll & (2 ** bit - 1))[2:] for ll in l]
-#     # code = []
-#     # for ll in l:
-#     #     c = bin(ll & (2 ** bit - 1))[2:]  # generate two's complement
-#     #     t = '0' * (bit - len(c)) + c  # add 0 to the high significant bit
-#     #     code.append(t)
-#     l = l / scale if norm_to_one else l
-#     return l, code
-
 
 def gen_uniform_levels_input_encode(bit, signed=True, norm_to_one=True):
     l = torch.arange(2 ** bit)
     scale = (2 ** (bit - 1) - 1) if signed else (2 ** bit - 1)
     l = l - 2 ** (bit - 1) if signed else l
-    # c = bin(ll & (2 ** bit - 1))[2:]  # generate two's complement
-    # t = '0' * (bit - len(c)) + c  # add 0 to the high significant bit
     code = ['0' * (bit - len(bin(ll & (2 ** bit - 1))[2:])) + bin(ll & (2 ** bit - 1))[2:] for ll in l]
-    # code = l.reshape(-1, 1) >> np.arange(bit - 1, -1, -1) & 1
-    # code = []
-    # for ll in l:
-    #     c = bin(ll & (2 ** bit - 1))[2:]  # generate two's complement
-    #     t = '0' * (bit - len(c)) + c  # add 0 to the high significant bit
-    #     code.append(t)
     l = l / scale if norm_to_one else l
     return l, code
-
-
-# def gen_input_matrix(code_x, code_w, x, w):
-#     input_code_matrix = [[int(i) for i in list(c_x + c_w)] for c_x in code_x for c_w in code_w]
-#     input_value_matrix = [[v_x.item(), v_w.item()] for v_x in x for v_w in w]
-#     # for c_x, v_x in zip(code_x, x):
-#     #     for c_w, v_w in zip(code_w, w):
-#     #         input_code_matrix.append([int(i) for i in list(c_x + c_w)])
-#     #         input_value_matrix.append([v_x.item(), v_w.item()])
-#     input_code_matrix = np.array(input_code_matrix, dtype=bool).T
-#     inputs_list = [e for e in input_code_matrix]
-#     return inputs_list, input_value_matrix
 
 
 def gen_input_matrix(code_x, code_w, x, w):
     input_code_matrix = [[int(i) for i in list(c_x + c_w)] for c_x in code_x for c_w in code_w]
     input_value_matrix = [[v_x.item(), v_w.item()] for v_x in x for v_w in w]
-    # for c_x, v_x in zip(code_x, x):
-    #     for c_w, v_w in zip(code_w, w):
-    #         input_code_matrix.append([int(i) for i in list(c_x + c_w)])
-    #         input_value_matrix.append([v_x.item(), v_w.item()])
     input_value_matrix = torch.tensor(input_value_matrix, dtype=torch.float32)
     input_code_matrix = torch.tensor(input_code_matrix, dtype=torch.bool).T
     inputs_list = [e for e in input_code_matrix]
     return inputs_list, input_value_matrix
 
 
-def solve_position_weight(code, value_true):
+def solve_position_weight(code, value_true, alpha=0.):
     position_weight = value_true @ code.T @ torch.linalg.inv(code @ code.T)
     return position_weight
 

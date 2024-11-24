@@ -135,7 +135,6 @@ def evolve(
                           f"Out.bit: [{pop.champion.custom_attr_outputs_bit_width}/{pop._genome_params.get('n_outputs')}]-b\t"\
                           f"Max.re: [{pop.champion.custom_attr_maximal_relative_error:.4%}/{pop.champion.custom_attr_maximal_relative_error_th:.2%}]\t"\
                           f"Area: {pop.champion.custom_attr_area:.2f}\t"\
-                          f"Zeros: {pop.champion.custom_attr_zeros_meets_ratio:.2%}\t"\
                           f"Mut.rate: {ea._mutation_rate:.2%}\t"
                 # print(content)  # print(# end="",# flush=False,)
                 logger.info(content)

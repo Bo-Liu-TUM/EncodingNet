@@ -3,7 +3,6 @@ import time
 import torch.nn as nn
 import os
 import cgp
-from cgp import ConstantTrue, ConstantFalse, Identity, NOT, NOR2, NAND2, XNOR2, OR2, AND2, XOR2
 import torch
 import pickle
 import logging
