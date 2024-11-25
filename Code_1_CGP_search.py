@@ -56,7 +56,6 @@ def objective(individual):
     ind_cols_idx = drop_meaningless_bits(outputs[ind_cols_idx], value, ind_cols_idx, non_zero_th=1e-1, alpha=0.)
     # drop bits one by one to the target bit-width
     position_weights, value_pred, max_re, outputs_idx = solve_and_drop_bits(outputs[ind_cols_idx], value, ind_cols_idx, target_bit_width, alpha=0.)
-    zeros_meets_ratio = (value_pred[zeros_idx] != 0).sum() / zeros_idx.sum()
 
     active_nodes = {}
     for idx in outputs_idx:
@@ -79,7 +78,6 @@ def objective(individual):
     individual.custom_attr_valid_output_bits = outputs_idx.tolist()
     individual.custom_attr_maximal_relative_error = max_re.item()
     individual.custom_attr_maximal_relative_error_th = maximal_relative_error_th
-    individual.custom_attr_zeros_meets_ratio = 1-zeros_meets_ratio.item()
     return individual
 
 
@@ -216,8 +214,6 @@ parser.add_argument('--n-offsprings', type=int, default=50)
 parser.add_argument('--n-champions', type=int, default=2)
 parser.add_argument('--mutate-strategy', type=str, default='dynamic', choices=['dynamic', 'fixed'])
 parser.add_argument('--mutate-rate', type=float, default=0.1)
-parser.add_argument('--zero-meet', action='store_true')
-parser.add_argument('--zero-meet-th', type=float, default=0.2)
 args = parser.parse_args()
 args.running_cache = './running_cache/'
 
@@ -230,7 +226,6 @@ if __name__ == '__main__':
     mutate_strategy = args.mutate_strategy
     mutate_rate = args.mutate_rate
     maximal_relative_error_th = args.th / 100  # 0.01%, 0.5%, 1.0%, 2.0%, 5.0%, 10.0%, 20.0%
-    zeros_meets_th = args.zero_meet_th
     target_bit_width = args.target  # 48  # 64, 63, ..., 16, 15
     output_bit_width_during_search = args.search  # 256
     gate_levels = args.cols  # 1
@@ -280,12 +275,10 @@ if __name__ == '__main__':
             exit()
 
     value, inputs, constant_ones = tools.gen_inputs_value(bit=8, signed=True, norm_to_one=False)
-    zeros_idx = value == 0
     if torch.cuda.is_available():
         value = value.to(torch.float32).cuda(args.gpu)
         inputs = [e.cuda(args.gpu) for e in inputs]
         constant_ones = constant_ones.to(torch.bool).cuda(args.gpu)
-        zeros_idx = zeros_idx.cuda(args.gpu)
 
     logger.info(f"max_re_th:{maximal_relative_error_th:.2%}\t\t"
                 f"[{gate_rows}rows * {gate_levels}cols]\t"
