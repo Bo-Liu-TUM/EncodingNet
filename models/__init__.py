@@ -6,5 +6,4 @@
 from .resnet import *
 # from .quant_layer import *
 from .my_quant_layer import *
-from .NN_LUT import NN_LUT
 
