@@ -15,16 +15,6 @@ from kuai_log import get_logger
 import argparse
 
 
-def solve_position_weight(code, value_true, alpha=0.):
-    position_weight = value_true @ code.T @ torch.linalg.inv(code @ code.T)
-    position_weight = position_weight.round()
-    value_pred = position_weight @ code
-    errors = value_pred - value_true
-    relative_errors = torch.abs(errors) / max(value_true.max(), -value_true.min())
-    maximal_relative_error = relative_errors.max()
-    return position_weight, value_pred, maximal_relative_error
-
-
 def get_total_area(addresses, graph, active_nodes={}):
     # according to the address, get the node info
     # if it is input node, return 0
@@ -59,11 +49,6 @@ def objective(individual):
     # select the output nodes with the index, solve maximal relative error, and area
     value_pred, max_re, _ = tools.solve_max_re_rmse(position_weights.round()[:, outputs_idx], outputs[outputs_idx], value)
 
-    # here is another way to solve the best idx, but it is very time-consuming, if you are interested, please have a try
-    # ind_cols_idx = find_maximal_independent_bits(outputs, max_rank=None)
-    # ind_cols_idx = drop_meaningless_bits(outputs[ind_cols_idx], value, ind_cols_idx, non_zero_th=1e-1, alpha=0.)
-    # position_weights, value_pred, max_re, outputs_idx = solve_and_drop_bits(outputs[ind_cols_idx], value, ind_cols_idx, target_bit_width, alpha=0.)
-
     active_nodes = {}
     for idx in outputs_idx:
         # print(graph.output_nodes[idx].addresses)
@@ -86,43 +71,6 @@ def objective(individual):
     individual.custom_attr_maximal_relative_error = max_re.item()
     individual.custom_attr_maximal_relative_error_th = maximal_relative_error_th
     return individual
-
-
-def drop_one_bit(position_weights, sample_idx):
-    order = position_weights.abs().view(-1).argsort(descending=True)[:-1]  # drop the smallest one
-    return sample_idx[order]
-
-
-def find_maximal_independent_bits(matrix, max_rank=None):
-    max_rank = torch.linalg.matrix_rank(matrix) if max_rank is None else max_rank
-    num_rows, num_cols = matrix.shape
-    matrix = matrix.T if num_rows < num_cols else matrix
-    Q, R = torch.linalg.qr(matrix, mode='complete')
-    diag_abs = torch.abs(torch.diag(R))
-    sorted_indices = torch.argsort(diag_abs, descending=True)
-    independent_cols_idx = sorted_indices[0:max_rank]
-    return independent_cols_idx
-
-
-def drop_meaningless_bits(code, value_true, independent_cols_idx, non_zero_th=1e-1, alpha=0.):
-    position_weights, _, _ = solve_position_weight(code, value_true, alpha=alpha)
-    selected = torch.nonzero(position_weights.view(-1).abs() > non_zero_th).flatten()
-    return independent_cols_idx[selected]
-
-
-def solve_and_drop_bits(code_sample, value_true, independent_cols_idx, target_bit_width=1, alpha=0.):
-    rank_list = list(range(code_sample.shape[0], target_bit_width, -1))
-    sample_idx = torch.arange(code_sample.shape[0])
-    if torch.cuda.is_available():
-        sample_idx = sample_idx.cuda(args.gpu)
-    position_weights, value_pred, max_re = solve_position_weight(code_sample, value_true, alpha=alpha)
-    for rank in rank_list:
-        sample_idx = drop_one_bit(position_weights, sample_idx)
-        position_weights, value_pred, max_re = solve_position_weight(code_sample[sample_idx], value_true, alpha=alpha)
-        # print('rank: {}\t'
-        #       'rmse: {:.3f}\t'
-        #       'max_re: {:.3f}\t'.format(rank, rmse, max_re))
-    return position_weights, value_pred, max_re, independent_cols_idx[sample_idx]
 
 
 def main():
