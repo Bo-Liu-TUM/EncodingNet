@@ -25,7 +25,7 @@ def gen_input_matrix(code_x, code_w, x, w):
 
 
 def solve_position_weight(code, value_true, alpha=0.):
-    position_weight = value_true @ code.T @ torch.linalg.inv(code @ code.T)
+    position_weight = value_true @ code.T @ torch.linalg.inv(code @ code.T + alpha * torch.eye(code.shape[0]).to(code.device))
     return position_weight
 
 

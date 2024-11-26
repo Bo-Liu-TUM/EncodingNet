@@ -51,11 +51,18 @@ def objective(individual):
     outputs.append(constant_ones)  # add one column of ones as the constant
     range_idx = len(outputs)
     outputs = torch.stack(outputs).type(torch.float32)  #
-    ind_cols_idx = find_maximal_independent_bits(outputs, max_rank=None)
-    # drop meaningless bits
-    ind_cols_idx = drop_meaningless_bits(outputs[ind_cols_idx], value, ind_cols_idx, non_zero_th=1e-1, alpha=0.)
-    # drop bits one by one to the target bit-width
-    position_weights, value_pred, max_re, outputs_idx = solve_and_drop_bits(outputs[ind_cols_idx], value, ind_cols_idx, target_bit_width, alpha=0.)
+    # outputs is B, value is v, target_bit_width is M
+    # position_weights: solve position weights with ridge regression
+    position_weights = tools.solve_position_weight(outputs, value, alpha=0.1)
+    # outputs_idx: identify the M largest absolute values in position weights
+    outputs_idx = position_weights.abs().view(-1).argsort(descending=True)[0:target_bit_width]
+    # select the output nodes with the index, solve maximal relative error, and area
+    value_pred, max_re, _ = tools.solve_max_re_rmse(position_weights.round()[:, outputs_idx], outputs[outputs_idx], value)
+
+    # here is another way to solve the best idx, but it is very time-consuming, if you are interested, please have a try
+    # ind_cols_idx = find_maximal_independent_bits(outputs, max_rank=None)
+    # ind_cols_idx = drop_meaningless_bits(outputs[ind_cols_idx], value, ind_cols_idx, non_zero_th=1e-1, alpha=0.)
+    # position_weights, value_pred, max_re, outputs_idx = solve_and_drop_bits(outputs[ind_cols_idx], value, ind_cols_idx, target_bit_width, alpha=0.)
 
     active_nodes = {}
     for idx in outputs_idx:
