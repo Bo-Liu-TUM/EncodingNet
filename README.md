@@ -74,7 +74,7 @@ Bo Liu, Bing Li, Grace Li Zhang, Xunzhao Yin, Cheng Zhuo and Ulf Schlichtmann, "
   volume={1},
   number={2},
   pages={164-177},
-  doi={10.1109/TCASAI.2024.3493035},
+  doi={https://doi.org/10.1109/TCASAI.2024.3493035},
   url={https://ieeexplore.ieee.org/document/10746865}
 }
 ```
