@@ -55,13 +55,13 @@ An example Verilog code of one column in 64×64 MAC array is shown in `/verilog/
 -->
 
 ## Citation
-The paper is now accepted, and can be early accessed online, [https://ieeexplore.ieee.org/document/10746865](https://ieeexplore.ieee.org/document/10746865). 
 
-The paper is not fully edited for official publication, so the pages are still unknown.
+The paper is now accepted, and can be accessed online, [https://ieeexplore.ieee.org/document/10746865](https://ieeexplore.ieee.org/document/10746865).
+
 
 ### Plain Text
 
-B. Liu, B. Li, G. L. Zhang, X. Yin, C. Zhuo and U. Schlichtmann, "EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration," _IEEE Transactions on Circuits and Systems for Artificial Intelligence (TCASAI)_, vol. 1, no. 1, pp. ?-?, 2024.
+B. Liu, B. Li, G. L. Zhang, X. Yin, C. Zhuo and U. Schlichtmann, "EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration," _IEEE Transactions on Circuits and Systems for Artificial Intelligence (TCASAI)_, vol. 1, no. 2, pp. 164-177, 2024.
 
 
 ### BibTeX
@@ -72,8 +72,8 @@ B. Liu, B. Li, G. L. Zhang, X. Yin, C. Zhuo and U. Schlichtmann, "EncodingNet: A
   title={{EncodingNet}: A Novel Encoding-based {MAC} Design for Efficient Neural Network Acceleration}, 
   year={2024},
   volume={1},
-  number={1},
-  pages={?-?},
+  number={2},
+  pages={164-177},
   doi={10.1109/TCASAI.2024.3493035},
   url={https://ieeexplore.ieee.org/document/10746865}
 }
