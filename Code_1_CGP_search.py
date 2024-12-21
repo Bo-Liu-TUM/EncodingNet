@@ -47,7 +47,8 @@ def objective(individual):
     # outputs_idx: identify the M largest absolute values in position weights
     outputs_idx = position_weights.abs().view(-1).argsort(descending=True)[0:target_bit_width]
     # select the output nodes with the index, solve maximal relative error, and area
-    value_pred, max_re, _ = tools.solve_max_re_rmse(position_weights.round()[:, outputs_idx], outputs[outputs_idx], value)
+    value_pred, max_re, _ = tools.solve_max_re_rmse(position_weights.round()[:, outputs_idx], outputs[outputs_idx],
+                                                    value)
 
     active_nodes = {}
     for idx in outputs_idx:
@@ -191,23 +192,22 @@ if __name__ == '__main__':
     area_max = total_gates * max(e.custom_attr_area for e in primitives)
 
     continue_running = True
-    running_path = os.path.join(args.running_cache, f'th{args.th}%')   # backup/
+    running_path = os.path.join(args.running_cache, f'th{args.th}%')  # backup/
 
     if not os.path.exists(running_path):
         os.makedirs(running_path)
 
-    running_file = os.path.join(running_path,
-                                f"data-{gate_rows}row-{gate_levels}col-"
-                                f"{target_bit_width}bit-{output_bit_width_during_search}b-"
-                                f"idx{n_idx}-"
-                                f"{n_parents}pars-{n_offsprings}offs-{n_champions}chas-"
-                                f"{mutate_strategy}-{mutate_rate}mutate.pickle")
+    file_name = tools.get_file_name(col=gate_levels, row=gate_rows,
+                                    target=target_bit_width,
+                                    search=output_bit_width_during_search,
+                                    idx=n_idx,
+                                    n_parents=n_parents, n_offsprings=n_offsprings, n_champions=n_champions,
+                                    mutate_strategy=mutate_strategy,
+                                    mutate_rate=mutate_rate)
 
-    running_log = f"data-{gate_rows}row-{gate_levels}col-" \
-                  f"{target_bit_width}bit-{output_bit_width_during_search}b-" \
-                  f"idx{n_idx}-" \
-                  f"{n_parents}pars-{n_offsprings}offs-{n_champions}chas-" \
-                  f"{mutate_strategy}-{mutate_rate}mutate.log"
+    running_file = os.path.join(running_path, file_name + '.pickle')
+
+    running_log = file_name + '.log'
 
     logger = get_logger(name='gcp', level=logging.INFO, log_filename=running_log,
                         log_path=running_path, is_add_file_handler=True,
@@ -244,4 +244,3 @@ if __name__ == '__main__':
     main()
 else:
     print('Code_1_CGP_search.py imported')
-

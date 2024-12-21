@@ -7,7 +7,7 @@ import logging
 import numpy as np
 from kuai_log import get_logger
 import encode_tools as tools
-from models.model_tools import AverageMeter, ProgressMeter, accuracy, validate, train
+from models.model_tools import AverageMeter, ProgressMeter, accuracy, validate, train, load_dataset
 
 # available models please use torchvision.models.list_models()
 # or find on https://pytorch.org/vision/stable/models.html#classification
@@ -40,8 +40,8 @@ parser.add_argument('--lr', type=float, default=0.00001)
 
 # default
 # --arch efficientnet_b0 --a-bit 8 --w-bit 8 --baseline --gpu 0 --test
-# python3 Code_2_finetune_cifar10.py --retrain --gpu 0 --product-bit 42 --search 64 --cols 1 --rows 256 --th 1.0 --epochs 23 --fixed-type big --fixed-num 0
-# python3 Code_2_finetune_cifar10.py --retrain --bit 8 --gpu 0 --product-bit 42 --search 64 --cols 1 --rows 256 --th 1.5 --epochs 23 --fixed-type big --fixed-num 42 --delta 10
+# python3 Code_2_finetune_models.py --retrain --gpu 0 --product-bit 42 --search 64 --cols 1 --rows 256 --th 1.0 --epochs 23 --fixed-type big --fixed-num 0
+# python3 Code_2_finetune_models.py --retrain --bit 8 --gpu 0 --product-bit 42 --search 64 --cols 1 --rows 256 --th 1.5 --epochs 23 --fixed-type big --fixed-num 42 --delta 10
 args = parser.parse_args()
 args.gpu = None if args.gpu == 'None' else int(args.gpu)
 args.dataset = 'imagenet'
@@ -203,17 +203,31 @@ def main():
         dataset_new.targets = [dataset.targets[i] for i in sub_dataset_id]
         return dataset_new
 
-    train_dataset = torchvision.datasets.ImageFolder(traindir, transform=preprocess)
+    # train_dataset = torchvision.datasets.ImageFolder(traindir, transform=preprocess)
+    # train_dataset = torchvision.datasets.ImageNet(root=args.data, split='train', transform=preprocess)
+    #
+    # train_loader = torch.utils.data.DataLoader(train_dataset,
+    #                                            persistent_workers=True,
+    #                                            batch_size=args.batch_size,
+    #                                            shuffle=True,
+    #                                            num_workers=args.workers,
+    #                                            pin_memory=True)
+    #
+    # val_dataset = torchvision.datasets.ImageFolder(valdir, transform=preprocess)
+    # val_dataset = torchvision.datasets.ImageNet(root=args.data, split='val', transform=preprocess)
+    #
+    # val_loader = torch.utils.data.DataLoader(val_dataset,
+    #                                          persistent_workers=True,
+    #                                          batch_size=args.batch_size,
+    #                                          shuffle=False,
+    #                                          num_workers=args.workers,
+    #                                          pin_memory=True)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, persistent_workers=True,
-                                               batch_size=args.batch_size, shuffle=True,
-                                               num_workers=args.workers, pin_memory=True)
-
-    val_dataset = torchvision.datasets.ImageFolder(valdir, transform=preprocess)
-
-    val_loader = torch.utils.data.DataLoader(val_dataset, persistent_workers=True,
-                                             batch_size=args.batch_size, shuffle=False,
-                                             num_workers=args.workers, pin_memory=True)
+    train_loader, val_loader = load_dataset(root=args.data,
+                                            transform=preprocess,
+                                            batch_size=args.batch_size,
+                                            workers=args.workers
+                                            )
 
     criterion = nn.CrossEntropyLoss()
     if args.gpu is not None:
@@ -332,30 +346,17 @@ def main():
         elif args.arch == 'efficientnet_b0':
             for name, param in model.named_parameters():
                 if 'alpha_act' in name:
-                    # param.requires_grad = True
-                    # model_params += [{'params': [param], 'lr': 1e-5, 'weight_decay': 1e-4}]
                     param.requires_grad = False
                     model_params += [{'params': [param]}]
                 elif 'alpha_wgt' in name:
-                    # param.requires_grad = True
-                    # model_params += [{'params': [param], 'lr': 1e-5, 'weight_decay': 1e-4}]
                     param.requires_grad = False
                     model_params += [{'params': [param]}]
                 elif 'digit_weight' in name:
-                    # param.requires_grad = True
-                    # model_params += [{'params': [param], 'lr': 1e-12, 'weight_decay': 1e-7}]
                     param.requires_grad = False
                     model_params += [{'params': [param]}]
-                # elif 'fc' in name and ('weight' in name or 'bias' in name):
-                #     param.requires_grad = True
-                #     model_params += [{'params': [param], 'lr': 1e-4, 'weight_decay': 1e-4}]
                 else:
                     param.requires_grad = True
                     model_params += [{'params': [param]}]
-                if param.requires_grad:
-                    print('Yes, enable to learn:', name)
-                else:
-                    print('No, disable to learn:', name)
             optimizer = torch.optim.RMSprop(model_params, lr=args.lr, momentum=0.9, weight_decay=1e-5, alpha=0.9)
             sub_dataset_ratio = 0.01
         else:

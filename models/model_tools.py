@@ -1,6 +1,10 @@
+import os
 import gc
 import time
 import torch
+import torchvision
+import numpy as np
+from typing import Any, Callable, Optional, Tuple
 
 
 class AverageMeter(object):
@@ -64,7 +68,7 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def validate(val_loader, model, criterion, args, verbose=True):
+def validate(val_loader, model, criterion, args, verbose=True, end_batch=None):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
@@ -100,6 +104,10 @@ def validate(val_loader, model, criterion, args, verbose=True):
 
             if verbose and i % args.print_freq == 0:
                 print(progress.display(i))
+
+            if end_batch is not None and i >= end_batch:
+                # logger.info(progress.display(i))
+                break
 
             # # ----------------------
             # # this is used to extract loss value, Todo delete this after extract loss
@@ -169,5 +177,57 @@ def train(train_loader, model, criterion, optimizer, epoch, args, writer=None, e
     # logger.info(progress.display(i))
 
 
+def load_dataset(root: str,
+                 transform: Optional[Callable] = None,
+                 batch_size: int = 32,
+                 workers: int = 4):
+    dataset = os.path.basename(root)
+    assert dataset in ["cifar10", "cifar100", "imagenet2012"]
 
+    train_dataset, test_dataset = None, None
+
+    if dataset == "cifar10":
+        train_dataset = torchvision.datasets.CIFAR10(root=root, train=True, download=True, transform=transform)
+        test_dataset = torchvision.datasets.CIFAR10(root=root, train=False, download=True, transform=transform)
+
+    if dataset == "cifar100":
+        train_dataset = torchvision.datasets.CIFAR100(root=root, train=True, download=True, transform=transform)
+        test_dataset = torchvision.datasets.CIFAR100(root=root, train=False, download=True, transform=transform)
+
+    if dataset == "imagenet2012":
+        train_dataset = torchvision.datasets.ImageNet(root=root, split='train', transform=transform)
+        test_dataset = torchvision.datasets.ImageNet(root=root, split='val', transform=transform)
+
+    train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True, pin_memory=True,
+                                               num_workers=workers, batch_size=batch_size, persistent_workers=True, )
+    val_loader = torch.utils.data.DataLoader(test_dataset, shuffle=False, pin_memory=True,
+                                             num_workers=workers, batch_size=batch_size, persistent_workers=True, )
+    return train_loader, val_loader
+
+
+def sub_dataset(dataset: [torchvision.datasets.ImageFolder, None] = None, ratio: float = 0.1):
+    assert dataset is not None, 'invalid dataset'
+    dataset_new = dataset
+    sub_dataset_id = []
+    sub_class_id = []
+    class_id = 0
+    for i in range(len(dataset.targets) - 1):
+        sub_class_id.append(i)
+        if (dataset.targets[i] != dataset.targets[i + 1]) or i + 2 == len(dataset.targets):
+            if i + 2 == len(dataset.targets):
+                sub_class_id.append(i + 1)
+            sub_class_id = np.array(sub_class_id)
+            total_samples = len(sub_class_id)
+            sub_samples = int(total_samples * ratio) + 1
+            sub_samples = sub_samples if sub_samples <= total_samples else total_samples
+            idx = np.random.choice(total_samples, sub_samples, replace=False)
+            sub_dataset_id = sub_dataset_id + sub_class_id[idx].tolist()
+            class_id = class_id + 1
+            sub_class_id = []
+        print(f'\r[{i}/{len(dataset.targets)}]\t{i / len(dataset.targets):.2%}', end='', flush=True)
+    print("sub_dataset, done!")
+    dataset_new.imgs = [dataset.imgs[i] for i in sub_dataset_id]
+    dataset_new.samples = [dataset.samples[i] for i in sub_dataset_id]
+    dataset_new.targets = [dataset.targets[i] for i in sub_dataset_id]
+    return dataset_new
 

@@ -9,7 +9,7 @@ import logging
 import numpy as np
 from kuai_log import get_logger
 import encode_tools as tools
-from models.model_tools import AverageMeter, ProgressMeter, accuracy, validate, train
+from models.model_tools import AverageMeter, ProgressMeter, accuracy, validate, train, load_dataset
 
 # model = torch.hub.load("chenyaofo/pytorch-cifar-models", "cifar100_resnet20", pretrained=True)
 import argparse
@@ -17,6 +17,49 @@ import argparse
 parser = argparse.ArgumentParser(description='PyTorch Cifar100 Training')
 
 parser.add_argument('--arch', type=str, default='resnet20', choices=['resnet20', 'mobilenet_v2'])
+
+arch_cifar10 = [
+    'vgg11_bn',
+    'vgg13_bn',
+    'vgg16_bn',
+    'vgg19_bn',
+    'resnet18',
+    'resnet34',
+    'resnet50',
+    'densenet121',
+    'densenet161',
+    'densenet169',
+    'mobilenet_v2',
+    'googlenet',
+    'inception_v3',
+]
+
+arch_cifar100 = [
+    'resnet20',
+    'resnet32',
+    'resnet44',
+    'resnet56',
+    'vgg11_bn',
+    'vgg13_bn',
+    'vgg16_bn',
+    'vgg19_bn',
+    'mobilenetv2_x0_5',
+    'mobilenetv2_x0_75',
+    'mobilenetv2_x1_0',
+    'mobilenetv2_x1_4',
+    'shufflenetv2_x0_5',
+    'shufflenetv2_x1_0',
+    'shufflenetv2_x1_5',
+    'shufflenetv2_x2_0',
+    'repvgg_a0',
+    'repvgg_a1',
+    'repvgg_a2',
+]
+
+arch_imagenet = [
+    'resnet50',
+    'efficientnet_b0',
+]
 
 parser.add_argument('--a-bit', type=int, default=8, choices=[1, 2, 3, 4, 5, 6, 7, 8, 32])
 parser.add_argument('--w-bit', type=int, default=8, choices=[1, 2, 3, 4, 5, 6, 7, 8, 32])
@@ -173,23 +216,37 @@ def main():
     import torchvision
     import torchvision.transforms as transforms
     print('------> loading dataset of Cifar100')
-    train_dataset = torchvision.datasets.CIFAR100(root=args.data, train=True, download=True,
-                                                  transform=transforms.Compose([
-                                                      transforms.ToTensor(),
-                                                      transforms.Normalize(mean=[0.507, 0.4865, 0.4409],
-                                                                           std=[0.2673, 0.2564, 0.2761])
-                                                  ]))
-    train_loader = torch.utils.data.DataLoader(train_dataset,
-                                               shuffle=True, persistent_workers=True, num_workers=args.workers,
-                                               batch_size=args.batch_size)
-
-    test_dataset = torchvision.datasets.CIFAR100(root=args.data, train=False, download=True,
-                                                 transform=transforms.Compose([
-                                                     transforms.ToTensor(),
-                                                     transforms.Normalize(mean=[0.507, 0.4865, 0.4409],
-                                                                          std=[0.2673, 0.2564, 0.2761])
-                                                 ]))
-    val_loader = torch.utils.data.DataLoader(test_dataset, shuffle=False, num_workers=args.workers, batch_size=100)
+    # train_dataset = torchvision.datasets.CIFAR100(root=args.data, train=True, download=True,
+    #                                               transform=transforms.Compose([
+    #                                                   transforms.ToTensor(),
+    #                                                   transforms.Normalize(mean=[0.507, 0.4865, 0.4409],
+    #                                                                        std=[0.2673, 0.2564, 0.2761])
+    #                                               ]))
+    # train_loader = torch.utils.data.DataLoader(train_dataset,
+    #                                            shuffle=True,
+    #                                            persistent_workers=True,
+    #                                            num_workers=args.workers,
+    #                                            batch_size=args.batch_size)
+    #
+    # test_dataset = torchvision.datasets.CIFAR100(root=args.data, train=False, download=True,
+    #                                              transform=transforms.Compose([
+    #                                                  transforms.ToTensor(),
+    #                                                  transforms.Normalize(mean=[0.507, 0.4865, 0.4409],
+    #                                                                       std=[0.2673, 0.2564, 0.2761])
+    #                                              ]))
+    # val_loader = torch.utils.data.DataLoader(test_dataset,
+    #                                          shuffle=False,
+    #                                          num_workers=args.workers,
+    #                                          batch_size=100)
+    train_loader, val_loader = load_dataset(root=args.data,
+                                            transform=transforms.Compose([
+                                                transforms.ToTensor(),
+                                                transforms.Normalize(mean=[0.507, 0.4865, 0.4409],
+                                                                     std=[0.2673, 0.2564, 0.2761]),
+                                                ]),
+                                            batch_size=args.batch_size,
+                                            workers=args.workers
+                                            )
 
     criterion = nn.CrossEntropyLoss()
     if args.gpu is not None:
@@ -293,16 +350,9 @@ def main():
             elif 'digit_weight' in name:
                 param.requires_grad = True
                 model_params += [{'params': [param], 'lr': 1e-7, 'weight_decay': 1e-7}]
-            # elif 'fc' in name and ('weight' in name or 'bias' in name):
-            #     param.requires_grad = True
-            #     model_params += [{'params': [param], 'lr': 1e-4, 'weight_decay': 1e-4}]
             else:
                 param.requires_grad = True
                 model_params += [{'params': [param]}]
-            if param.requires_grad:
-                print('Yes, enable to learn:', name)
-            else:
-                print('No, disable to learn:', name)
         optimizer = torch.optim.SGD(model_params, lr=args.lr, momentum=0.9, weight_decay=5e-4)  # 2.5e-3
 
         logger.info(f'learning rate = {args.lr}')
