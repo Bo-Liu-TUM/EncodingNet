@@ -219,15 +219,15 @@ def read_running_info(path: [str, None] = None,  #
 
 
 def convert_searched_results(path='/home/ge26rem/lrz-nashome/LRZ/SourceCode/CGP_search/running_cache/', th=0.1,
-                             filename='', product_bit=0):
-    if product_bit == 0:
+                             filename='', mode='Exact-INT'):
+    if mode == 'FP32' or mode == 'Exact-INT':
         return None
     else:
         x_signed, w_signed, norm_to_one = True, True, False
         running_info = read_running_info(path=path, th=th, name=filename)
         value, inputs, constant_ones = gen_inputs_value(bit=8, signed=True, norm_to_one=False)
         code = get_code(running_info, inputs, constant_ones)
-        position_weights = solve_position_weight(code, value)
+        position_weights = solve_position_weight(code, value, alpha=0.1)
         value_appr, maximal_relative_error, rmse = solve_max_re_rmse(position_weights, code, value)
 
         searched_info = []
@@ -248,7 +248,7 @@ def convert_searched_results(path='/home/ge26rem/lrz-nashome/LRZ/SourceCode/CGP_
 
 
 def apply_delta_for_finetune(searched_info, delta=0):
-    if delta > 0:
+    if searched_info is not None and delta > 0:
         assert len(searched_info) == 1, 'length of searched_info > 1'
         position_weights = searched_info[0]['digit-weight of product code'] * 16384
         max_position_weight = position_weights.abs().max()
@@ -276,21 +276,21 @@ def get_file_name(col=2, row=256, target=64, search=128, idx=0, n_parents=10, n_
            f"{mutate_strategy}-" \
            f"{mutate_rate}mutate"
 
-def get_approx_product(searched_info, a_bit=8, w_bit=8, product_bit=64):
-    approx_product_value_2d, digit_weight, rmse = None, None, 0.0
-    if product_bit > 0:
+
+def get_approx_product(searched_info, a_bit=8, w_bit=8, product_bit=64, mode='Approx-INT'):
+    approx_product_value_2d, rmse = None, 0.0
+    if mode == 'Approx-INT':
         assert len(searched_info) == 1, 'length of searched_info > 1'
         info = searched_info[0]
         assert info['bit-width of product'] == product_bit
         assert info['bit-width of weight'] == w_bit
         assert info['bit-width of activation'] == a_bit
-        print('bit-width of product: {}\t'
-              'root mean square error:{:.2e}'.format(info['bit-width of product'],
-                                                     info['root mean square error']))
+        print(f"bit-width of product: {info['bit-width of product']}\t"
+              f"root mean square error:{info['root mean square error']:.2e}")
         approx_product_value_2d = info['approximate value of product'].view(256, 256)
-        digit_weight = info['digit-weight of product code']
+        # digit_weight = info['digit-weight of product code']
         rmse = info['root mean square error']
-    return approx_product_value_2d, digit_weight, rmse
+    return approx_product_value_2d, rmse
 
 
 def main():

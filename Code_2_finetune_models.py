@@ -15,10 +15,10 @@ arch_imagenet = ['resnet50', 'efficientnet_b0']
 parser = argparse.ArgumentParser(description='PyTorch cifar10 or cifar100 Training')
 parser.add_argument('--arch', type=str, default='resnet18', choices=arch_cifar10 + arch_cifar100 + arch_imagenet)
 parser.add_argument('--data', type=str, default='cifar10', choices=['cifar10', 'cifar100', 'imagenet2012'])
-parser.add_argument('--run', type=str, default='retrain', choices=['retrain', 'test'])
+parser.add_argument('--run', type=str, default='test', choices=['retrain', 'test'])
 parser.add_argument('--epochs', type=int, default=25)
 parser.add_argument('--batch-size', type=int, default=256)
-parser.add_argument('--gpu', default='None', choices=['None', '0', '1', '2', '3'])
+parser.add_argument('--gpu', default='0', choices=['None', '0', '1', '2', '3'])
 parser.add_argument('--workers', type=int, default=4)
 parser.add_argument('--print-freq', type=int, default=1)
 parser.add_argument('--running-cache', type=str, default='./running_cache/')
@@ -113,24 +113,23 @@ def main():
     # load searched results
     logger.info(f'--> according to the CGP search configuration, load searched results')
     searched_info = tools.convert_searched_results(path=args.running_cache, th=args.th,
-                                                   product_bit=args.product_bit, filename=filename + '.pickle')
+                                                   mode=args.mode, filename=filename + '.pickle')
     searched_info = tools.apply_delta_for_finetune(searched_info, delta=args.delta)
 
-    if searched_info[0]['bit-width of product'] < args.product_bit:
+    if searched_info is not None and searched_info[0]['bit-width of product'] < args.product_bit:
         args.product_bit = searched_info[0]['bit-width of product']
 
-    args.approx_product_value, args.digit_weight, args.rmse = tools.get_approx_product(searched_info,
-                                                                                       a_bit=args.a_bit,
-                                                                                       w_bit=args.w_bit,
-                                                                                       product_bit=args.product_bit)
+    args.approx_product_value, args.rmse = tools.get_approx_product(searched_info,
+                                                                    mode=args.mode,
+                                                                    a_bit=args.a_bit,
+                                                                    w_bit=args.w_bit,
+                                                                    product_bit=args.product_bit)
 
     logger.info(f'rmse: {args.rmse:.4e}')
 
     # move to GPU
     if args.gpu is not None and args.approx_product_value is not None:
         args.approx_product_value = args.approx_product_value.float().cuda(args.gpu)
-    if args.gpu is not None and args.digit_weight is not None:
-        args.digit_weight = args.digit_weight.cuda(args.gpu)
 
     # if 'out of memory', reduce mini_batch_size and mini_channels. 0 means full channels and full batch_size
     args.mini_batch_size = 5
@@ -221,11 +220,11 @@ def main():
 
             logger.info('--> start real inference')
             acc1, acc5, loss_avg = validate(val_loader, model, criterion, args)
-            logger.info(f'Acc-top1: {acc1:.4f}%\tAcc-top5: {acc5:.4f}%\tLoss: {loss_avg:.4f}\t')
+        logger.info(f'Acc-top1: {acc1:.4f}%\tAcc-top5: {acc5:.4f}%\tLoss: {loss_avg:.4f}\t')
 
     if args.retrain:
         if args.mode == 'FP32':
-            pass
+            logger.info(f'retrain in FP32 mode is unnecessary.')
         else:  # args.mode == 'Exact-INT' or args.mode == 'Approx-INT'
             if args.mode == 'Approx-INT':
                 model_name = f'{args.run}-{args.mode}-{filename}.pth'
@@ -250,9 +249,6 @@ def main():
                 elif 'alpha_wgt' in name:
                     param.requires_grad = True
                     model_params += [{'params': [param], 'lr': 1e-5, 'weight_decay': 1e-4}]
-                elif 'digit_weight' in name:
-                    param.requires_grad = False
-                    model_params += [{'params': [param]}]
                 else:
                     param.requires_grad = True
                     model_params += [{'params': [param]}]

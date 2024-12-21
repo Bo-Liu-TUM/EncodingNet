@@ -14,7 +14,6 @@ class QuantFC(nn.Linear):
                  mini_batch_size=0,
                  mini_channels=0,
                  approx_product_value=None,
-                 digit_weight=None,
                  mode='FP32'
                  ):
         super(QuantFC, self).__init__(in_features, out_features, bias)
@@ -38,7 +37,6 @@ class QuantFC(nn.Linear):
                                                     )
         self.act_quant = quantization(bit=self.a_bit, signed=True)
         self.wgt_quant = quantization(bit=self.w_bit, signed=True)
-        self.digit_weight = Parameter(digit_weight)
         self.alpha_act = Parameter(torch.tensor(0.))
         self.alpha_wgt = Parameter(torch.tensor(0.))
 
@@ -64,7 +62,7 @@ class QuantFC(nn.Linear):
                 weight_q = weight_q.div(self.alpha_wgt.detach())
                 x_q = x_q.unsqueeze(1)
                 weight_q = weight_q.unsqueeze(0)
-                out = self.product_approx(x_q, weight_q, self.digit_weight)
+                out = self.product_approx(x_q, weight_q)
                 out = out * self.alpha_act.detach() * self.alpha_wgt.detach()
                 if self.bias is not None:
                     out = out + self.bias
@@ -84,7 +82,6 @@ class QuantConv2d(nn.Conv2d):
                  mini_batch_size=0,
                  mini_channels=0,
                  approx_product_value=None,
-                 digit_weight=None,
                  mode='FP32'
                  ):
         super(QuantConv2d, self).__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups,
@@ -109,7 +106,6 @@ class QuantConv2d(nn.Conv2d):
                                                     )
         self.act_quant = quantization(bit=self.a_bit, signed=True)
         self.wgt_quant = quantization(bit=self.w_bit, signed=True)
-        self.digit_weight = Parameter(digit_weight)
         self.alpha_act = Parameter(torch.tensor(0.))
         self.alpha_wgt = Parameter(torch.tensor(0.))
 
@@ -151,7 +147,7 @@ class QuantConv2d(nn.Conv2d):
         x_q = x_q.unfold(3, j, self.stride[1])
         x_q = x_q.unsqueeze(1)
         weight_q = weight_q.unsqueeze(2).unsqueeze(2).unsqueeze(0)
-        out = self.product_approx(x_q, weight_q, self.digit_weight)
+        out = self.product_approx(x_q, weight_q)
         out = out * self.alpha_act.detach() * self.alpha_wgt.detach()
         if self.bias is not None:
             assert self.bias.numel() == d, 'num of bias must be equal to out channels'
@@ -171,7 +167,7 @@ def product_approximation(a_bit, w_bit, approx_product_value,
     # so try to solve a mini batch each time to save memory but require more time
     class _pq(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, x_l, w_l, digit_weight):
+        def forward(ctx, x_l, w_l):
             scale_w = 2 ** (w_bit - 1) - 1
             scale_x = 2 ** (a_bit - 1) - 1
             x_c = (x_l * scale_x).to(torch.int32) + (2 ** (a_bit - 1))
@@ -240,12 +236,12 @@ def product_approximation(a_bit, w_bit, approx_product_value,
                     grad_w_l.append((grad_output[i:end_batch] * x_l[i:end_batch]).sum((0, 3, 4), keepdim=True))
                 if end_batch < batch_size:
                     grad_x_l.append((grad_output[end_batch:] * w_l).sum(1, keepdim=True))
-                    grad_w_l.append((grad_output[end_batch:] * x_l[i:end_batch]).sum((0, 3, 4), keepdim=True))
+                    grad_w_l.append((grad_output[end_batch:] * x_l[end_batch:]).sum((0, 3, 4), keepdim=True))
                 grad_x_l = torch.cat(grad_x_l, dim=0)
                 grad_w_l = torch.cat(grad_w_l, dim=0)
             else:
                 raise ValueError('todo')
-            return grad_x_l, grad_w_l, None
+            return grad_x_l, grad_w_l
 
     return _pq().apply
 
@@ -308,7 +304,7 @@ def get_conv_params(m):
 def get_fc_params(m):
     (in_features, out_features, weights, biases) = (m.in_features, m.out_features, m.weight, m.bias)
     bias = False if biases is None else True
-    return (in_features, out_features, weights, biases, bias)
+    return in_features, out_features, weights, biases, bias
 
 
 def replace_conv_fc(m, args):
@@ -330,7 +326,6 @@ def replace_conv_fc(m, args):
                                             mini_batch_size=args.mini_batch_size,
                                             mini_channels=mini_channels,
                                             approx_product_value=args.approx_product_value,
-                                            digit_weight=args.digit_weight,
                                             mode=args.mode
                                             )
 
@@ -342,7 +337,6 @@ def replace_conv_fc(m, args):
                                         mini_batch_size=args.mini_batch_size,
                                         mini_channels=0,
                                         approx_product_value=args.approx_product_value,
-                                        digit_weight=args.digit_weight,
                                         mode=args.mode
                                         )
         else:
