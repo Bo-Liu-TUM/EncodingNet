@@ -42,52 +42,59 @@ This ia an open-source repo for an accepted paper, `EncodingNet: A Novel Encodin
 ### Usage
 
 ```commandline
-python Code_1_CGP_search.py --gpu 0 --target 64 --search 128 --cols 2 --rows 256 --th 0.1 --gen 2500 --idx 0 --n-parents 10 --n-offsprings 50 --n-champions 2 --mutate-strategy dynamic --mutate-rate 0.1 
+python3 Code_1_CGP_search.py --gpu 0 --target 64 --search 128 --cols 2 --rows 256 --th 0.1 --gen 2500 --idx 0 --n-parents 10 --n-offsprings 50 --n-champions 2 --mutate-strategy dynamic --mutate-rate 0.1 
 ```
 
 ## Test and Fine-tune Neural Networks
 The file `./Code_2_finetune_models.py` is used to apply searched encodings, fine-tune encoding-based neural networks, and test for accuracies.
 
 ### Command
-| Command           | Default            | Choices                                                                                    | Description               |
-|-------------------|--------------------|--------------------------------------------------------------------------------------------|---------------------------|
-| `--arch`          | `resnet18`         | `resnet18`, `mobilenet_v2`, `resnet20`, `mobilenetv2_x0_5`, `resnet50`, `efficientnet_b0`  | model name                |
-| `--data`          | `cifar10`          | `cifar10`, `cifar100`, `imagenet2012`                                                      | dataset                   |
-| `--run`           | `test`             | `retrain`, `test`                                                                          | running mode              |
-| `--epochs`        | `25`               | integer                                                                                    | epochs                    |
-| `--batch-size`    | `256`              | integer                                                                                    | batch size                |
-| `--gpu`           | `0`                | `0`, `1`, `2`, `3`                                                                         | gpu devices index         |
-| `--workers`       | `4`                | integer                                                                                    | workers to load dataset   |
-| `--print-freq`    | `1`                | integer                                                                                    | print frequency           |
-| `--running-cache` | `./running_cache/` | directory path                                                                             | path save searched result |
-| `--mode`          | `FP32`             | `FP32`, `Exact-INT`, `Approx-INT`                                                          | data representation mode  |
-| `--a-bit`         | `8`                | `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `32`                                               | bit-width of activation   |
-| `--w-bit`         | `8`                | `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `32`                                               | bit-width of weights      |
-| `--product-bit`   | `0`                | `36`, `40`, `42`, `44`, `46`, `48`, `52`, `56`, `60`, `64`                                 | bit-width of products     |
+| Command           | Default            | Choices                                                                                    | Description                   |
+|-------------------|--------------------|--------------------------------------------------------------------------------------------|-------------------------------|
+| `--arch`          | `resnet18`         | `resnet18`, `mobilenet_v2`, `resnet20`, `mobilenetv2_x0_5`, `resnet50`, `efficientnet_b0`  | model name                    |
+| `--data`          | `cifar10`          | `cifar10`, `cifar100`, `imagenet2012`                                                      | dataset                       |
+| `--run`           | `test`             | `retrain`, `test`                                                                          | running mode                  |
+| `--epochs`        | `25`               | integer                                                                                    | epochs                        |
+| `--batch-size`    | `256`              | integer                                                                                    | batch size                    |
+| `--gpu`           | `0`                | `0`, `1`, `2`, `3`                                                                         | gpu devices index             |
+| `--workers`       | `4`                | integer                                                                                    | workers to load dataset       |
+| `--print-freq`    | `1`                | integer                                                                                    | print frequency               |
+| `--running-cache` | `./running_cache/` | directory path                                                                             | path to save searched results |
+| `--mode`          | `FP32`             | `FP32`, `Exact-INT`, `Approx-INT`                                                          | data representation mode      |
+| `--a-bit`         | `8`                | `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `32`                                               | bit-width of activation       |
+| `--w-bit`         | `8`                | `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `32`                                               | bit-width of weights          |
+| `--product-bit`   | `0`                | `36`, `40`, `42`, `44`, `46`, `48`, `52`, `56`, `60`, `64`                                 | bit-width of products         |
 
 `--run` has two options. `test` is for inference and `retrain` for fine-tune.
 
 `--mode` has three options. `FP32` is for 32-bit floating point, `Exact-INT` for 1~8-bit exact integer multiplication, and `Approx-INT` for 8-bit approximate integer multiplication.
 
+The searched results will be saved in `./running_cache/`.
 
 ### Test Mode
 
 #### FP32
 
+Inference in `FP32` mode.
+
 ```commandline
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode FP32 
+python3 Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode FP32 
 ```
 
 #### Exact-INT
 
+Inference in `Exact-INT` mode with 1~8-bit uniform quantization, and exact integer multiplications. 
+
 ```commandline
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode Exact-INT --a-bit 8 --w-bit 8
+python3 Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode Exact-INT --a-bit 8 --w-bit 8
 ```
 
 #### Approx-INT
 
+Inferences in `Approx-INT` mode with 8-bit uniform quantization, and the searched approximate integer multiplications.
+
 ```commandline
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
+python3 Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
 ```
 
 ### Fine-tune Mode
@@ -103,20 +110,26 @@ python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mod
 
 #### FP32
 
+Fine-tuning in `FP32` mode.
+
 ```commandline
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode FP32 
+python3 Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode FP32 
 ```
 
 #### Exact-INT
 
+Fine-tuning in `Exact-INT` mode with 1~8-bit uniform quantization, and exact integer multiplications. 
+
 ```commandline
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode Exact-INT --a-bit 8 --w-bit 8
+python3 Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode Exact-INT --a-bit 8 --w-bit 8
 ```
 
 #### Approx-INT
 
+Fine-tuning in `Approx-INT` mode with 8-bit uniform quantization, and the searched approximate integer multiplications.
+
 ```commandline
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
+python3 Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
 ```
 
 
