@@ -4,11 +4,11 @@ This ia an open-source repo for an accepted paper, `EncodingNet: A Novel Encodin
 [//]: # (The codes in this repo will be well-structured and updated in the following weeks.)
 
 ## Pretrained Models
-| Dataset   | Online Models                                                       | Packages           |
-|-----------|---------------------------------------------------------------------|--------------------|
-| CIFAR-10  | [PyTorch CIFAR10](https://github.com/huyvnphan/PyTorch_CIFAR10)     | `./cifar10_models` |
-| CIFAR-100 | [PyTorch CIFAR100](https://github.com/weiaicunzai/pytorch-cifar100) | `./cifar-models`   |
-| ImageNet  | [TorchVision](https://pytorch.org/vision/stable/models.html)        | -                  |
+| Dataset   | Online Models                                                       | Packages               |
+|-----------|---------------------------------------------------------------------|------------------------|
+| CIFAR-10  | [PyTorch CIFAR10](https://github.com/huyvnphan/PyTorch_CIFAR10)     | `./cifar10_models`     |
+| CIFAR-100 | [PyTorch CIFAR100](https://github.com/weiaicunzai/pytorch-cifar100) | `./cifar-models`       |
+| ImageNet  | [TorchVision](https://pytorch.org/vision/stable/models.html)        | `torchvision.models`   |
 
 ## CGP (Cartesian Genetic Programming) Package
 `./cgp` is a modified package which is copied from [https://zenodo.org/records/3889163](https://zenodo.org/records/3889163)
