@@ -254,14 +254,24 @@ def main():
                     model_params += [{'params': [param]}]
 
             if args.data == 'cifar10':
-                optimizer = torch.optim.SGD(model_params, lr=1e-4, momentum=0.9, weight_decay=1e-4)
+                if args.arch == 'resnet18':
+                    optimizer = torch.optim.SGD(model_params, lr=1e-4, momentum=0.9, weight_decay=1e-4)
+                elif args.arch == 'mobilenet_v2':
+                    optimizer = torch.optim.SGD(model_params, lr=1e-4, momentum=0.9, weight_decay=1e-4)
+                else:
+                    raise ValueError(f'--arch should be in {arch_cifar10}')
             elif args.data == 'cifar100':
-                optimizer = torch.optim.SGD(model_params, lr=1e-3, momentum=0.9, weight_decay=5e-4)  # 2.5e-3
+                if args.arch == 'resnet20':
+                    optimizer = torch.optim.SGD(model_params, lr=1e-4, momentum=0.9, weight_decay=2.5e-3)
+                elif args.arch == 'mobilenetv2_x0_5':
+                    optimizer = torch.optim.SGD(model_params, lr=1e-3, momentum=0.9, weight_decay=5e-4)
+                else:
+                    raise ValueError(f'--arch should be in {arch_cifar100}')
             elif args.data == 'imagenet2012':
                 if args.arch == 'resnet50':
-                    optimizer = torch.optim.SGD(model_params, lr=args.lr, momentum=0.9, weight_decay=1e-4)
+                    optimizer = torch.optim.SGD(model_params, lr=1e-5, momentum=0.9, weight_decay=1e-4)
                 elif args.arch == 'efficientnet_b0':
-                    optimizer = torch.optim.RMSprop(model_params, lr=args.lr, momentum=0.9, weight_decay=1e-5, alpha=0.9)
+                    optimizer = torch.optim.RMSprop(model_params, lr=1e-5, momentum=0.9, weight_decay=1e-5, alpha=0.9)
                 else:
                     raise ValueError(f'--arch should be in {arch_imagenet}')
             else:
