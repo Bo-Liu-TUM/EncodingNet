@@ -103,20 +103,20 @@ python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mod
 
 #### FP32
 
-```shell
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --epochs 25 --batch-size 256 --mode FP32 
+```commandline
+python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode FP32 
 ```
 
 #### Exact-INT
 
 ```commandline
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --epochs 25 --batch-size 256 --mode Exact-INT --a-bit 8 --w-bit 8
+python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode Exact-INT --a-bit 8 --w-bit 8
 ```
 
 #### Approx-INT
 
-```
-python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --epochs 25 --batch-size 256 --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
+```commandline
+python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
 ```
 
 
@@ -126,9 +126,9 @@ The paper is now accepted, and can be accessed online, [https://ieeexplore.ieee.
 
 
 ### Plain Text
-```text
+
 Bo Liu, Bing Li, Grace Li Zhang, Xunzhao Yin, Cheng Zhuo and Ulf Schlichtmann, "EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration," _IEEE Transactions on Circuits and Systems for Artificial Intelligence (TCASAI)_, vol. 1, no. 2, pp. 164-177, 2024.
-```
+
 
 ### BibTeX
 ```
