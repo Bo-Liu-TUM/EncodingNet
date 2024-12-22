@@ -37,7 +37,7 @@ This ia an open-source repo for an accepted paper, `EncodingNet: A Novel Encodin
 | `--n-offsprings`    | `50`      | `10`, `20`, `30`, `40`, `50`                                | offsprings generated                     |
 | `--n-champions`     | `2`       | `1`, `2`, `3`, `4`, `5`                                     | champions saved                          |
 | `--mutate-strategy` | `dynamic` | `dynamic`, `fixed`                                          | strategy to change mutation rate         |
-| `--mutate-rate`     | `0.1`     | `0.01`, `0.025`, `0.05`, `0.10`, `0.15`, `0.20`             | only valid if --mutate-strategy is fixed |
+| `--mutate-rate`     | `0.1`     | `0.01`, `0.025`, `0.05`, `0.10`, `0.15`, `0.20`             | valid only if --mutate-strategy is fixed |
 
 ### Usage
 
