@@ -115,7 +115,7 @@ python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --
 
 #### Approx-INT
 
-```commandline
+```properties
 python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --epochs 25 --batch-size 256 --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
 ```
 
