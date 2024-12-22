@@ -103,7 +103,7 @@ python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mod
 
 #### FP32
 
-```commandline
+```shell
 python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run retrain --epochs 25 --batch-size 256 --mode FP32 
 ```
 
