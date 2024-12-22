@@ -41,7 +41,7 @@ This ia an open-source repo for an accepted paper, `EncodingNet: A Novel Encodin
 
 ### Usage
 
-```
+```shell
 python Code_1_CGP_search.py --gpu 0 --target 64 --search 128 --cols 2 --rows 256 --th 0.1 --gen 2500 --idx 0 --n-parents 10 --n-offsprings 50 --n-champions 2 --mutate-strategy dynamic --mutate-rate 0.1 
 ```
 
@@ -65,11 +65,32 @@ The file `./Code_2_finetune_models.py` is used to apply searched encodings, fine
 | `--w-bit`         | `8`                | `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `32`                                               | bit-width of weights      |
 | `--product-bit`   | `0`                | `36`, `40`, `42`, `44`, `46`, `48`, `52`, `56`, `60`, `64`                                 | bit-width of products     |
 
+### Test Mode
+
+#### FP32
+
+```shell
+python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode FP32 
+```
+
+#### Exact-INT
+
+```shell
+python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode Exact-INT --a-bit 8 --w-bit 8
+```
+
+#### Approx-INT
+
+```shell
+python Code_2_finetune_models.py --data cifar10 --arch resnet18 --run test --mode Approx-INT --a-bit 8 --w-bit 8 --product-bit 64
+```
+
+
 `--run` has two options. `test` is for inference and `retrain` for fine-tune.
 
 `--mode` has three options. `FP32` is for 32-bit floating point, `Exact-INT` for 1~8-bit exact integer multiplication, and `Approx-INT` for 8-bit approximate integer multiplication.
 
-### Command
+### Fine-tune Mode
 
 | Dataset   | Models          | Learning Rate | Batch Size |
 |-----------|-----------------|---------------|------------|
