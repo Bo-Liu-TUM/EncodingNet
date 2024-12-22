@@ -18,7 +18,7 @@ parser.add_argument('--data', type=str, default='cifar10', choices=['cifar10', '
 parser.add_argument('--run', type=str, default='test', choices=['retrain', 'test'])
 parser.add_argument('--epochs', type=int, default=25)
 parser.add_argument('--batch-size', type=int, default=256)
-parser.add_argument('--gpu', default='0', choices=['None', '0', '1', '2', '3'])
+parser.add_argument('--gpu', type=int, default=0, choices=[0, 1, 2, 3])
 parser.add_argument('--workers', type=int, default=4)
 parser.add_argument('--print-freq', type=int, default=1)
 parser.add_argument('--running-cache', type=str, default='./running_cache/')
@@ -30,17 +30,15 @@ parser.add_argument('--search', type=int, default=128, choices=[64, 128, 256])
 parser.add_argument('--cols', type=int, default=2, choices=[1, 2, 3])
 parser.add_argument('--rows', type=int, default=256, choices=[64, 128, 256])
 parser.add_argument('--th', type=float, default=0.1, choices=[0.1, 0.2, 0.5, 1, 1.5, 2, 5, 10, 20])
-parser.add_argument('--idx', type=int, default=0)
-parser.add_argument('--n-parents', type=int, default=10)
-parser.add_argument('--n-offsprings', type=int, default=50)
-parser.add_argument('--n-champions', type=int, default=2)
+parser.add_argument('--idx', type=int, default=0, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+parser.add_argument('--n-parents', type=int, default=10, choices=[10, 20, 30, 40, 50])
+parser.add_argument('--n-offsprings', type=int, default=50, choices=[10, 20, 30, 40, 50])
+parser.add_argument('--n-champions', type=int, default=2, choices=[1, 2, 3, 4, 5])
 parser.add_argument('--mutate-strategy', type=str, default='dynamic', choices=['dynamic', 'fixed'])
-parser.add_argument('--mutate-rate', type=float, default=0.1)
+parser.add_argument('--mutate-rate', type=float, default=0.1, choices=[0.01, 0.025, 0.05, 0.1, 0.15, 0.2])
 parser.add_argument('--delta', type=int, default=0, choices=[0, 1, 2, 3, 4, 5])
 
 args = parser.parse_args()
-
-args.gpu = None if args.gpu == 'None' else int(args.gpu)
 
 if args.mode == 'FP32':
     args.a_bit = 32
@@ -57,6 +55,12 @@ elif args.mode == 'Approx-INT':
     assert args.rows in [64, 128, 256]
     assert args.search in [64, 128, 256]
     assert args.th in [0.1, 0.2, 0.5, 1, 1.5, 2, 5, 10, 20]
+    assert args.idx in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    assert args.n_parents in [10, 20, 30, 40, 50]
+    assert args.n_offsprings in [10, 20, 30, 40, 50]
+    assert args.n_champions in [1, 2, 3, 4, 5]
+    assert args.mutate_strategy in ['dynamic', 'fixed']
+    assert args.mutate_rate in [0.01, 0.025, 0.05, 0.1, 0.15, 0.2]
     assert args.delta in [0, 1, 2, 3, 4, 5]
 else:
     ValueError("valid value of --mode is in ['FP32', 'Exact-INT', 'Approx-INT']")
@@ -128,13 +132,12 @@ def main():
     logger.info(f'rmse: {args.rmse:.4e}')
 
     # move to GPU
-    if args.gpu is not None and args.approx_product_value is not None:
+    if torch.cuda.is_available() and args.approx_product_value is not None:
         args.approx_product_value = args.approx_product_value.float().cuda(args.gpu)
 
     # if 'out of memory', reduce mini_batch_size and mini_channels. 0 means full channels and full batch_size
     args.mini_batch_size = 5
     args.mini_channels = 0
-    args.batch_size = 256
 
     if args.mini_batch_size == 0 or args.mini_batch_size > args.batch_size:
         args.mini_batch_size = args.batch_size
@@ -186,7 +189,7 @@ def main():
     from models.my_quant_layer import QuantFC, QuantConv2d, replace_conv_fc
     model = replace_conv_fc(model, args=args)
 
-    if args.gpu is not None:
+    if torch.cuda.is_available():
         model = model.cuda(args.gpu)
 
     train_loader, val_loader = load_dataset(root=args.data_path,
@@ -196,7 +199,7 @@ def main():
 
     criterion = nn.CrossEntropyLoss()
 
-    if args.gpu is not None:
+    if torch.cuda.is_available():
         criterion = criterion.cuda(args.gpu)
 
     t_conv, t_fc = 0, 0
