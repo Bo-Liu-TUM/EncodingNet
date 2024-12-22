@@ -1,58 +1,85 @@
 # EncodingNet
 This ia an open-source repo for an accepted paper, `EncodingNet: A Novel Encoding-based MAC Design for Efficient Neural Network Acceleration`, on `IEEE Transactions on Circuits and Systems for Artificial Intelligence (TCASAI)`. 
 
-The codes in this repo will be well-structured and updated in the following weeks.
+[//]: # (The codes in this repo will be well-structured and updated in the following weeks.)
 
-## Pretrained models
-|  Dataset   | Online Models  |
-|  ----  | ----  |
-| CIFAR-10  | [https://github.com/huyvnphan/PyTorch_CIFAR10](https://github.com/huyvnphan/PyTorch_CIFAR10) |
-| CIFAR-100  | [https://github.com/weiaicunzai/pytorch-cifar100](https://github.com/weiaicunzai/pytorch-cifar100) |
-| ImageNet | [https://pytorch.org/vision/stable/models.html](https://pytorch.org/vision/stable/models.html)    |
+## Pretrained Models
+| Dataset   | Online Models                                                       | Packages           |
+|-----------|---------------------------------------------------------------------|--------------------|
+| CIFAR-10  | [PyTorch CIFAR10](https://github.com/huyvnphan/PyTorch_CIFAR10)     | `./cifar10_models` |
+| CIFAR-100 | [PyTorch CIFAR100](https://github.com/weiaicunzai/pytorch-cifar100) | `./cifar-models`   |
+| ImageNet  | [TorchVision](https://pytorch.org/vision/stable/models.html)        | -                  |
 
-## CGP (Cartesian Genetic Programming) package
-`cgp` is a modified package which is copied from [https://zenodo.org/records/3889163](https://zenodo.org/records/3889163)
+## CGP (Cartesian Genetic Programming) Package
+`./cgp` is a modified package which is copied from [https://zenodo.org/records/3889163](https://zenodo.org/records/3889163)
 
-## User-defined encoding package
-`encode_tools` is a user-defined package which includes functions related to encoding.
+## User-defined Packages
+`./encode_tools` is a user-defined package which includes functions related to encoding.
 
-## User-defined model package
-`models` is a user-defined package which implement encoding techniques on modified `Linear` and `Conv2d` layers.
+`./models` is a user-defined package which implements encoding techniques on modified `Linear` and `Conv2d` layers.
 
-## CGP search
-`Code_1_CGP_search.py` is used to apply CGP search process.
+## CGP Search
+`./Code_1_CGP_search.py` is used to apply CGP search process.
 
-## Fine-tune neural networks
-The following files are used to apply searched encodings, fine-tune encoding-based neural networks, and test for accuracies. 
-|File|Dataset|Model|
-| ---- | ---- | ---- |
-|`Code_2_finetune_cifar10.py`|CIFAR-10|ResNet-18|
-|`Code_3_finetune_cifar100.py`|CIFAR-100|ResNet-20|
-|`Code_4_finetune_imagenet.py`|ImageNet|ResNet-50|
+### Command 
 
-<!--
-## Verilog code
-An example Verilog code of one column in 64×64 MAC array is shown in `/verilog/PE_colunm_Bo_64.v`. 
-### Systolic array, exact multiplier, exact adder
+| Command             | Default   | Choices                                                     | Description                              |
+|---------------------|-----------|-------------------------------------------------------------|------------------------------------------|
+| `--gpu`             | `0`       | `0`, `1`, `2`, `3`                                          | gpu device index                         |
+| `--target`          | `64`      | `36`, `40`, `42`, `44`, `46`, `48`, `52`, `56`, `60`, `64`  | the target product bit-width             |
+| `--search`          | `128`     | `64`, `128`, `256`                                          | total output nodes                       |
+| `--cols`            | `2`       | `1`, `2`, `3`                                               | columns of node array                    |
+| `--rows`            | `256`     | `64`, `128`, `256`                                          | rows of node array                       |
+| `--th`              | `0.1`     | `0.1`, `0.2`, `0.5`, `1`, `1.5`, `2`, `5`, `10`, `20`       | threshold of maximal relative error      |
+| `--gen`             | `2500`    | integer                                                     | generations                              |
+| `--idx`             | `0`       | `0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`            | the index of the search                  |
+| `--n-parents`       | `10`      | `10`, `20`, `30`, `40`, `50`                                | parents maintained                       |
+| `--n-offsprings`    | `50`      | `10`, `20`, `30`, `40`, `50`                                | offsprings generated                     |
+| `--n-champions`     | `2`       | `1`, `2`, `3`, `4`, `5`                                     | champions saved                          |
+| `--mutate-strategy` | `dynamic` | `dynamic`, `fixed`                                          | strategy to change mutation rate         |
+| `--mutate-rate`     | `0.1`     | `0.01`, `0.025`, `0.05`, `0.10`, `0.15`, `0.20`             | only valid if --mutate-strategy is fixed |
 
-![trad-exact-mul-exact-add](/verilog/trad/exact-mul-exact-add.svg)
+### Usage
 
-<div id="mm" class="msgbox"><pre><span class="msg_none">Running Icarus Verilog simulator...</span>
-<span class="msg_none">VCD info: dumping is suppressed.</span>
-<span class="msg_none">a_left * w_in + sum_in =    1 *    1 +      2 =      3, sum_out =      3 (00003 at 15 ps)</span>
-<span class="msg_none">a_left * w_in + sum_in =   -2 *    1 +     -3 =     -5, sum_out =     -5 (1fffb at 25 ps)</span>
-<span class="msg_none">a_left * w_in + sum_in =    3 *    1 +     -4 =     -1, sum_out =     -1 (1ffff at 35 ps)</span>
-<span class="msg_none">a_left * w_in + sum_in =   -4 *    1 +      5 =      1, sum_out =      1 (00001 at 45 ps)</span>
-<span class="msg_none">a_left * w_in + sum_in =    1 *   -1 +      2 =      1, sum_out =      1 (00001 at 65 ps)</span>
-<span class="msg_none">a_left * w_in + sum_in =   -2 *   -1 +     -3 =     -1, sum_out =     -1 (1ffff at 75 ps)</span>
-<span class="msg_none">a_left * w_in + sum_in =    3 *   -1 +     -4 =     -7, sum_out =     -7 (1fff9 at 85 ps)</span>
-<span class="msg_none">a_left * w_in + sum_in =   -4 *   -1 +      5 =      9, sum_out =      9 (00009 at 95 ps)</span>
-<span class="msg_hint">Hint: Total mismatched samples is 0 out of 0 samples</span>
-<span class="msg_none"></span>
-<span class="msg_none">Simulation finished at 100 ps</span>
-<span class="msg_none">Mismatches: 0 in 0 samples</span>
-<span class="msg_none"></span></pre></div>
--->
+```
+python Code_1_CGP_search.py --gpu 0 --target 64 --search 128 --cols 2 --rows 256 --th 0.1 --gen 2500 --idx 0 --n-parents 10 --n-offsprings 50 --n-champions 2 --mutate-strategy dynamic --mutate-rate 0.1 
+```
+
+## Test and Fine-tune Neural Networks
+The file `./Code_2_finetune_models.py` is used to apply searched encodings, fine-tune encoding-based neural networks, and test for accuracies.
+
+### Command
+| Command           | Default            | Choices                                                                                    | Description               |
+|-------------------|--------------------|--------------------------------------------------------------------------------------------|---------------------------|
+| `--arch`          | `resnet18`         | `resnet18`, `mobilenet_v2`, `resnet20`, `mobilenetv2_x0_5`, `resnet50`, `efficientnet_b0`  | model name                |
+| `--data`          | `cifar10`          | `cifar10`, `cifar100`, `imagenet2012`                                                      | dataset                   |
+| `--run`           | `test`             | `retrain`, `test`                                                                          | running mode              |
+| `--epochs`        | `25`               | integer                                                                                    | epochs                    |
+| `--batch-size`    | `256`              | integer                                                                                    | batch size                |
+| `--gpu`           | `0`                | `0`, `1`, `2`, `3`                                                                         | gpu devices index         |
+| `--workers`       | `4`                | integer                                                                                    | workers to load dataset   |
+| `--print-freq`    | `1`                | integer                                                                                    | print frequency           |
+| `--running-cache` | `./running_cache/` | directory path                                                                             | path save searched result |
+| `--mode`          | `FP32`             | `FP32`, `Exact-INT`, `Approx-INT`                                                          | data representation mode  |
+| `--a-bit`         | `8`                | `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `32`                                               | bit-width of activation   |
+| `--w-bit`         | `8`                | `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `32`                                               | bit-width of weights      |
+| `--product-bit`   | `0`                | `36`, `40`, `42`, `44`, `46`, `48`, `52`, `56`, `60`, `64`                                 | bit-width of products     |
+
+`--run` has two options. `test` is for inference and `retrain` for fine-tune.
+
+`--mode` has three options. `FP32` is for 32-bit floating point, `Exact-INT` for 1~8-bit exact integer multiplication, and `Approx-INT` for 8-bit approximate integer multiplication.
+
+### Command
+
+| Dataset   | Models          | Learning Rate | Batch Size |
+|-----------|-----------------|---------------|------------|
+| CIFAR-10  | ResNet-18       | 1e-4          | 256        |
+| CIFAR-10  | MobileNet-V2    | 1e-4          | 256        |
+| CIFAR-100 | ResNet-20       | 1e-4          | 256        |
+| CIFAR-100 | MobileNet-V2    | 1e-3          | 256        |
+| ImageNet  | ResNet-50       | 1e-5          | 32         |
+| ImageNet  | EfficientNet-B0 | 1e-5          | 32         |
+
 
 ## Citation
 
